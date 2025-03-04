@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    container_name: sewing_patterns_db
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sewing_patterns
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: .
+    container_name: sewing_patterns_backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/sewing_patterns
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+volumes:
+  db_data: {}
