@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:latest
@@ -16,7 +14,7 @@ services:
       - "5432:5432"
 
   backend:
-    build: .
+    build: ./backend
     container_name: sewing_patterns_backend
     restart: always
     environment:
