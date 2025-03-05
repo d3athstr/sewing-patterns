@@ -1,27 +1,67 @@
 import requests
+from bs4 import BeautifulSoup
+
+def construct_pattern_url(brand, pattern_number):
+    """Generate the correct URL for the given brand and pattern number."""
+    brand_map = {
+        "Butterick": "butterick/b",
+        "Vogue": "vogue-patterns/v",
+        "Simplicity": "simplicity/s",
+        "McCall's": "mccalls/m",
+        "Know Me": "know-me/me",
+        "New Look": "new-look/n",
+        "Burda": "burda-style/bur"
+    }
+
+    if brand not in brand_map:
+        return None
+
+    return f"https://simplicity.com/{brand_map[brand]}{pattern_number}"
 
 def scrape_pattern(brand, pattern_number):
-    url_map = {
-        "Butterick": f"https://simplicity.com/butterick/b{pattern_number}",
-        "Vogue": f"https://simplicity.com/vogue-patterns/v{pattern_number}",
-        "Simplicity": f"https://simplicity.com/simplicity-patterns/s{pattern_number}",
-        "McCall's": f"https://simplicity.com/mccalls/m{pattern_number}",
-        "Know Me": f"https://simplicity.com/know-me/me{pattern_number}",
-        "New Look": f"https://simplicity.com/new-look/n{pattern_number}",
-        "Burda": f"https://simplicity.com/burda-style/bur{pattern_number}",
-    }
+    try:
+        # ✅ Ensure correct brand-to-URL mappings
+        brand_map = {
+            "Butterick": "butterick/b",
+            "Vogue": "vogue-patterns/v",
+            "Simplicity": "simplicity/s",
+            "McCall's": "mccalls/m",
+            "Know Me": "know-me/me",
+            "New Look": "new-look/n",
+            "Burda": "burda-style/bur"
+        }
 
-    if brand not in url_map:
-        return {"error": "Brand not supported"}
+        # Normalize brand key (case-insensitive check)
+        normalized_brand = brand.strip().title()
 
-    url = url_map[brand]
-    response = requests.get(url)
+        if normalized_brand not in brand_map:
+            return {"error": f"Brand '{brand}' not recognized"}
 
-    if response.status_code != 200:
-        return {"error": "Failed to retrieve data"}
+        url = f"https://www.simplicity.com/{brand_map[normalized_brand]}{pattern_number}/"
 
-    return {
-        "title": f"{brand} {pattern_number}",
-        "description": f"Scraped data for {brand} {pattern_number}",
-        "image": "https://via.placeholder.com/150"
-    }
+        response = requests.get(url)
+        if response.status_code != 200:
+            return {"error": f"Failed to fetch data from {url} (HTTP {response.status_code})"}
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # ✅ Extract Data
+        title = soup.find("h1").text.strip() if soup.find("h1") else f"{brand} {pattern_number}"
+        description = soup.find("div", class_="description").text.strip() if soup.find("div", class_="description") else "No description available"
+        image = soup.find("img", class_="product-image")["src"] if soup.find("img", class_="product-image") else "https://via.placeholder.com/150"
+
+        return {
+            "brand": brand,
+            "pattern_number": pattern_number,
+            "title": title,
+            "description": description,
+            "image": image,
+            "difficulty": "Intermediate",  # Placeholder value
+            "size": "S-XL",
+            "format": "PDF",
+            "material_recommendations": "Cotton, Linen",
+            "notions": "Zipper, Buttons"
+        }
+
+    except Exception as e:
+        return {"error": f"Scraper error: {str(e)}"}

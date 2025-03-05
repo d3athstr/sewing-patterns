@@ -3,3 +3,5 @@ flask_cors
 flask_sqlalchemy
 psycopg2-binary
 requests
+flask-migrate
+beautifulsoup4
