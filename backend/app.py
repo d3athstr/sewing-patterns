@@ -104,27 +104,35 @@ def scrape():
     pattern_number = request.args.get("pattern_number")
 
     if not brand or not pattern_number:
-        return jsonify({"error": "Brand and pattern number are required"}), 400
+        return jsonify({"error": "Brand and pattern_number are required"}), 400
+
+    # ✅ Check if the pattern already exists
+    existing_pattern = Pattern.query.filter_by(brand=brand, pattern_number=pattern_number).first()
 
     scraped_data = scrape_pattern(brand, pattern_number)
 
-    # 🚨 If the scraper fails, return the error instead of inserting
     if "error" in scraped_data:
-        return jsonify(scraped_data), 500  
+        return jsonify(scraped_data), 500
 
-    # ✅ Only insert valid fields into the database
-    valid_fields = {col.name for col in Pattern.__table__.columns}
-    filtered_data = {key: value for key, value in scraped_data.items() if key in valid_fields}
-
-    # Prevent database errors by ensuring required fields are present
-    if "brand" not in filtered_data or "pattern_number" not in filtered_data:
-        return jsonify({"error": "Missing essential pattern data"}), 500
-
-    new_pattern = Pattern(**filtered_data)
+    if existing_pattern:
+        # ✅ If pattern exists, update it instead of inserting a new one
+        existing_pattern.title = scraped_data["title"]
+        existing_pattern.description = scraped_data["description"]
+        existing_pattern.image = scraped_data["image"]
+        existing_pattern.difficulty = scraped_data["difficulty"]
+        existing_pattern.size = scraped_data["size"]
+        existing_pattern.format = scraped_data["format"]
+        existing_pattern.material_recommendations = scraped_data["material_recommendations"]
+        existing_pattern.notions = scraped_data["notions"]
+        db.session.commit()
+        return jsonify({"message": "Pattern updated", "pattern": existing_pattern.to_dict()})
+    
+    # ✅ If pattern does not exist, insert it
+    new_pattern = Pattern(**scraped_data)
     db.session.add(new_pattern)
     db.session.commit()
 
-    return jsonify(new_pattern.to_dict()), 201  # Return HTTP 201 Created
+    return jsonify(new_pattern.to_dict())
 
 # Run Flask App
 if __name__ == '__main__':
