@@ -98,41 +98,36 @@ def delete_pattern(id):
     return jsonify({"message": "Pattern deleted"})
 
 # Scrape and add pattern
-@app.route('/scrape', methods=['GET'])
+@app.route("/scrape", methods=["GET"])
 def scrape():
     brand = request.args.get("brand")
     pattern_number = request.args.get("pattern_number")
 
     if not brand or not pattern_number:
-        return jsonify({"error": "Brand and pattern_number are required"}), 400
-
-    # ✅ Check if the pattern already exists
-    existing_pattern = Pattern.query.filter_by(brand=brand, pattern_number=pattern_number).first()
+        return jsonify({"error": "Brand and Pattern Number are required"}), 400
 
     scraped_data = scrape_pattern(brand, pattern_number)
+    
+    # ✅ Ensure scraped_data is a dictionary and has required fields
+    if not isinstance(scraped_data, dict) or "brand" not in scraped_data or "pattern_number" not in scraped_data:
+        return jsonify({"error": "Failed to scrape valid pattern data"}), 500
 
-    if "error" in scraped_data:
-        return jsonify(scraped_data), 500
+    existing_pattern = Pattern.query.filter_by(brand=brand, pattern_number=pattern_number).first()
 
     if existing_pattern:
-        # ✅ If pattern exists, update it instead of inserting a new one
-        existing_pattern.title = scraped_data["title"]
-        existing_pattern.description = scraped_data["description"]
-        existing_pattern.image = scraped_data["image"]
-        existing_pattern.difficulty = scraped_data["difficulty"]
-        existing_pattern.size = scraped_data["size"]
-        existing_pattern.format = scraped_data["format"]
-        existing_pattern.material_recommendations = scraped_data["material_recommendations"]
-        existing_pattern.notions = scraped_data["notions"]
+        # ✅ Update existing pattern
+        for key, value in scraped_data.items():
+            setattr(existing_pattern, key, value)
+        existing_pattern.inventory_qty = (existing_pattern.inventory_qty or 0) + 1
         db.session.commit()
         return jsonify({"message": "Pattern updated", "pattern": existing_pattern.to_dict()})
-    
-    # ✅ If pattern does not exist, insert it
+
+    # ✅ Add new pattern
     new_pattern = Pattern(**scraped_data)
     db.session.add(new_pattern)
     db.session.commit()
+    return jsonify({"message": "Pattern added", "pattern": new_pattern.to_dict()})
 
-    return jsonify(new_pattern.to_dict())
 
 # Run Flask App
 if __name__ == '__main__':
