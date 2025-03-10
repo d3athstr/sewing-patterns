@@ -14,15 +14,15 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# Define the Pattern model with image_data (binary) instead of image (string)
+# Define the Pattern model with both a fallback URL and binary image data
 class Pattern(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     brand = db.Column(db.String(50), nullable=False)
     pattern_number = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    # Updated: use image_data for storing binary image data
-    image_data = db.Column(db.LargeBinary, nullable=True)
+    image = db.Column(db.String(500))  # Fallback URL for the image
+    image_data = db.Column(db.LargeBinary, nullable=True)  # Binary image data (if downloaded)
     difficulty = db.Column(db.String(50))
     size = db.Column(db.String(50))
     sex = db.Column(db.String(50))
@@ -39,21 +39,27 @@ class Pattern(db.Model):
     notes = db.Column(db.Text)
     
     def to_dict(self):
-        # Build a dictionary of all columns except the raw binary image data.
+        """
+        Serialize the pattern record.
+        If image_data is present, return an image_url that points to the endpoint serving the blob.
+        Otherwise, return the fallback URL stored in 'image'.
+        """
+        # Create a dictionary for all columns except the potentially large binary data.
         d = {col.name: getattr(self, col.name) for col in self.__table__.columns if col.name != "image_data"}
-        # Instead, include an image URL for the client to fetch the binary image.
         if self.image_data:
             d["image_url"] = url_for("get_pattern_image", pattern_id=self.id, _external=True)
+            d["downloaded"] = True
         else:
-            d["image_url"] = None
+            d["image_url"] = self.image  # fallback URL
+            d["downloaded"] = False
         return d
 
-# New route: Serve the image binary data
+# New route: Serve the binary image data if available
 @app.route("/pattern_image/<int:pattern_id>")
 def get_pattern_image(pattern_id):
     pattern = Pattern.query.get(pattern_id)
     if pattern and pattern.image_data:
-        # Adjust the mimetype as needed (assuming JPEG here)
+        # Adjust the mimetype if your images are not JPEG.
         return Response(pattern.image_data, mimetype="image/jpeg")
     return jsonify({"error": "Image not found"}), 404
 
@@ -68,7 +74,7 @@ def get_patterns():
 def add_pattern():
     data = request.json
     
-    valid_keys = {"brand", "pattern_number", "title", "description", "image_data", "difficulty",
+    valid_keys = {"brand", "pattern_number", "title", "description", "image", "image_data", "difficulty",
                   "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
                   "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
                   "yardage", "notions", "notes"}

@@ -55,13 +55,14 @@ function App() {
       .catch((err) => console.error("Error fetching data:", err));
   }, []);
 
-  // Helper function: Prefer blob data if available, fall back to URL.
+  // Helper function: Use the backend-provided image_url and downloaded flag.
+  // The backend now returns image_url that is either a blob-serving URL or a fallback URL,
+  // plus a boolean "downloaded" that indicates which one is used.
   const getImageInfo = (pattern) => {
-    // Blob data is provided as "image_url" from the backend if it exists.
-    if (pattern.image_url) {
-      return { src: pattern.image_url, downloaded: true };
-    }
-    return { src: pattern.image, downloaded: false };
+    return {
+      src: pattern.image_url, // This is set by the backend.
+      downloaded: pattern.downloaded // True if blob is used; false if fallback URL.
+    };
   };
 
   const handleScrapeAndAdd = () => {
@@ -269,8 +270,7 @@ function App() {
                     style={{ marginRight: "10px" }}
                   />
                   <h3>
-                    {pattern.brand} {pattern.pattern_number} -{" "}
-                    {pattern.title}
+                    {pattern.brand} {pattern.pattern_number} - {pattern.title}
                   </h3>
                 </div>
 
@@ -310,14 +310,10 @@ function App() {
                     </div>
                   ) : (
                     <div>
-                      {/* New checkbox field to indicate if the blob image is used */}
+                      {/* Checkbox indicating whether the blob image is used */}
                       <div>
                         <label>
-                          <input
-                            type="checkbox"
-                            checked={downloaded}
-                            readOnly
-                          />{" "}
+                          <input type="checkbox" checked={downloaded} readOnly />{" "}
                           Downloaded Image
                         </label>
                       </div>
