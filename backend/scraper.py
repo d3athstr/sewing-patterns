@@ -1,13 +1,25 @@
 import requests
 from bs4 import BeautifulSoup
 
-# ✅ Define only valid fields
+# ✅ Define only valid fields (updated to use image_data instead of image)
 VALID_FIELDS = {
-    "brand", "pattern_number", "title", "description", "image", "format",
+    "brand", "pattern_number", "title", "description", "image_data", "format",
     "size", "difficulty", "material_recommendations", "yardage",
     "notions", "cut_status", "cut_size", "inventory_qty", "cosplay_hackable",
     "cosplay_notes", "notes"
 }
+
+def download_image_data(image_url):
+    """
+    Download the image and return its binary content.
+    """
+    try:
+        response = requests.get(image_url, stream=True)
+        response.raise_for_status()
+        return response.content
+    except requests.RequestException as e:
+        print(f"Error downloading image {image_url}: {e}")
+        return None
 
 def scrape_pattern(brand, pattern_number):
     brand_mappings = {
@@ -59,8 +71,14 @@ def scrape_pattern(brand, pattern_number):
         print(f"📝 Description: {description}")
 
         image_tag = soup.find("meta", property="og:image")
-        image = image_tag["content"] if image_tag else "https://via.placeholder.com/150"
-        print(f"🖼 Image URL: {image}")
+        image_url = image_tag["content"] if image_tag else "https://via.placeholder.com/150"
+        print(f"🖼 Image URL: {image_url}")
+
+        # Download the image binary data.
+        image_data = download_image_data(image_url)
+        if image_data is None:
+            print("⚠️ Using placeholder image data because download failed")
+            image_data = download_image_data("https://via.placeholder.com/150")
 
         # ✅ Ensure all fields have default values
         pattern_data = {
@@ -68,7 +86,7 @@ def scrape_pattern(brand, pattern_number):
             "pattern_number": pattern_number,
             "title": title,
             "description": description,
-            "image": image,
+            "image_data": image_data,
             "format": "PDF" if "pd" in response.url else "Paper",
             "size": "Unknown",
             "difficulty": "Unknown",

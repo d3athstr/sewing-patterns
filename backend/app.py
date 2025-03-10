@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_migrate import Migrate
@@ -14,14 +14,15 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-# Define the Pattern model
+# Define the Pattern model with image_data (binary) instead of image (string)
 class Pattern(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     brand = db.Column(db.String(50), nullable=False)
     pattern_number = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    image = db.Column(db.String(500))
+    # Updated: use image_data for storing binary image data
+    image_data = db.Column(db.LargeBinary, nullable=True)
     difficulty = db.Column(db.String(50))
     size = db.Column(db.String(50))
     sex = db.Column(db.String(50))
@@ -38,7 +39,23 @@ class Pattern(db.Model):
     notes = db.Column(db.Text)
     
     def to_dict(self):
-        return {col.name: getattr(self, col.name) for col in self.__table__.columns}
+        # Build a dictionary of all columns except the raw binary image data.
+        d = {col.name: getattr(self, col.name) for col in self.__table__.columns if col.name != "image_data"}
+        # Instead, include an image URL for the client to fetch the binary image.
+        if self.image_data:
+            d["image_url"] = url_for("get_pattern_image", pattern_id=self.id, _external=True)
+        else:
+            d["image_url"] = None
+        return d
+
+# New route: Serve the image binary data
+@app.route("/pattern_image/<int:pattern_id>")
+def get_pattern_image(pattern_id):
+    pattern = Pattern.query.get(pattern_id)
+    if pattern and pattern.image_data:
+        # Adjust the mimetype as needed (assuming JPEG here)
+        return Response(pattern.image_data, mimetype="image/jpeg")
+    return jsonify({"error": "Image not found"}), 404
 
 # Fetch all patterns
 @app.route('/patterns', methods=['GET'])
@@ -51,7 +68,7 @@ def get_patterns():
 def add_pattern():
     data = request.json
     
-    valid_keys = {"brand", "pattern_number", "title", "description", "image", "difficulty",
+    valid_keys = {"brand", "pattern_number", "title", "description", "image_data", "difficulty",
                   "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
                   "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
                   "yardage", "notions", "notes"}
@@ -74,7 +91,7 @@ def update_pattern(id):
     pattern = Pattern.query.get_or_404(id)
     data = request.json
 
-    # ✅ Convert boolean fields properly
+    # Convert boolean fields properly
     if "cosplay_hackable" in data:
         if isinstance(data["cosplay_hackable"], str):
             data["cosplay_hackable"] = data["cosplay_hackable"].strip().lower() in ["yes", "true", "1"]
@@ -84,7 +101,6 @@ def update_pattern(id):
 
     db.session.commit()
     return jsonify(pattern.to_dict())
-
 
 # Delete a pattern
 @app.route('/patterns/<int:id>', methods=['DELETE'])
@@ -108,26 +124,25 @@ def scrape():
 
     scraped_data = scrape_pattern(brand, pattern_number)
     
-    # ✅ Ensure scraped_data is a dictionary and has required fields
+    # Ensure scraped_data is a dictionary and has required fields
     if not isinstance(scraped_data, dict) or "brand" not in scraped_data or "pattern_number" not in scraped_data:
         return jsonify({"error": "Failed to scrape valid pattern data"}), 500
 
     existing_pattern = Pattern.query.filter_by(brand=brand, pattern_number=pattern_number).first()
 
     if existing_pattern:
-        # ✅ Update existing pattern
+        # Update existing pattern
         for key, value in scraped_data.items():
             setattr(existing_pattern, key, value)
         existing_pattern.inventory_qty = (existing_pattern.inventory_qty or 0) + 1
         db.session.commit()
         return jsonify({"message": "Pattern updated", "pattern": existing_pattern.to_dict()})
 
-    # ✅ Add new pattern
+    # Add new pattern
     new_pattern = Pattern(**scraped_data)
     db.session.add(new_pattern)
     db.session.commit()
     return jsonify({"message": "Pattern added", "pattern": new_pattern.to_dict()})
-
 
 # Run Flask App
 if __name__ == '__main__':

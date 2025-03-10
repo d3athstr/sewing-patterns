@@ -3,22 +3,22 @@ import { useState, useEffect } from "react";
 function App() {
   const BRANDS = [
     "Butterick",
-    "Vogue", 
-    "Simplicity", 
-    "McCall's", 
-    "Know Me", 
-    "New Look", 
+    "Vogue",
+    "Simplicity",
+    "McCall's",
+    "Know Me",
+    "New Look",
     "Burda"
   ];
 
   const API_BASE_URL = "http://192.168.14.45:5000";
-  
+
   const fetchData = (endpoint) => {
     return fetch(`${API_BASE_URL}/${endpoint}`)
       .then((res) => res.json())
       .catch((err) => console.error(`Error fetching ${endpoint}:`, err));
   };
-  
+
   const [patterns, setPatterns] = useState([]);
   const [newPattern, setNewPattern] = useState({
     brand: BRANDS[0], // Default to first brand
@@ -55,6 +55,15 @@ function App() {
       .catch((err) => console.error("Error fetching data:", err));
   }, []);
 
+  // Helper function: Prefer blob data if available, fall back to URL.
+  const getImageInfo = (pattern) => {
+    // Blob data is provided as "image_url" from the backend if it exists.
+    if (pattern.image_url) {
+      return { src: pattern.image_url, downloaded: true };
+    }
+    return { src: pattern.image, downloaded: false };
+  };
+
   const handleScrapeAndAdd = () => {
     const scrapeUrl = `${API_BASE_URL}/scrape?brand=${newPattern.brand}&pattern_number=${newPattern.pattern_number}`;
 
@@ -67,7 +76,7 @@ function App() {
           throw new Error("❌ Scraped data is incomplete.");
         }
 
-        return fetchData("patterns").then(patterns => {
+        return fetchData("patterns").then((patterns) => {
           const existingPattern = patterns.find(
             (p) =>
               p.brand === scrapedData.brand &&
@@ -111,7 +120,7 @@ function App() {
       })
       .catch((err) => console.error(err));
   };
-  
+
   const handleEdit = (pattern, e) => {
     // Stop event propagation to prevent toggle
     if (e) {
@@ -141,7 +150,9 @@ function App() {
     })
       .then((res) => res.json())
       .then((updatedPattern) => {
-        setPatterns((prev) => prev.map((p) => (p.id === updatedPattern.id ? updatedPattern : p)));
+        setPatterns((prev) =>
+          prev.map((p) => (p.id === updatedPattern.id ? updatedPattern : p))
+        );
         setEditingPatternId(null);
       })
       .catch((err) => console.error("Error updating pattern:", err));
@@ -180,7 +191,7 @@ function App() {
     .sort((a, b) => {
       // Extract numeric part of pattern number
       const extractNumber = (patternNumber) => {
-        const numericPart = patternNumber.replace(/[^\d]/g, '');
+        const numericPart = patternNumber.replace(/[^\d]/g, "");
         return numericPart ? parseInt(numericPart, 10) : Infinity;
       };
 
@@ -197,26 +208,37 @@ function App() {
       {/* 🔍 Search Fields */}
       <h2>Search Patterns</h2>
       {Object.keys(newPattern).map((key) => (
-        <input key={key} name={key} placeholder={`Filter by ${key}`} onChange={handleFilterChange} />
+        <input
+          key={key}
+          name={key}
+          placeholder={`Filter by ${key}`}
+          onChange={handleFilterChange}
+        />
       ))}
 
       {/* ➕ Add New Pattern */}
       <h2>Add New Pattern</h2>
-      <select 
-        name="brand" 
-        value={newPattern.brand} 
-        onChange={(e) => setNewPattern({ ...newPattern, brand: e.target.value })}
+      <select
+        name="brand"
+        value={newPattern.brand}
+        onChange={(e) =>
+          setNewPattern({ ...newPattern, brand: e.target.value })
+        }
       >
-        {BRANDS.map(brand => (
-          <option key={brand} value={brand}>{brand}</option>
+        {BRANDS.map((brand) => (
+          <option key={brand} value={brand}>
+            {brand}
+          </option>
         ))}
       </select>
-      <input 
-        name="pattern_number" 
-        placeholder="Pattern Number" 
-        value={newPattern.pattern_number} 
-        onChange={(e) => setNewPattern({ ...newPattern, pattern_number: e.target.value })} 
-        required 
+      <input
+        name="pattern_number"
+        placeholder="Pattern Number"
+        value={newPattern.pattern_number}
+        onChange={(e) =>
+          setNewPattern({ ...newPattern, pattern_number: e.target.value })
+        }
+        required
       />
       <button onClick={handleScrapeAndAdd}>Scrape & Add</button>
 
@@ -224,69 +246,100 @@ function App() {
       {filteredPatterns.length === 0 ? (
         <p>Loading...</p>
       ) : (
-        <ul style={{ listStyleType: 'none', padding: 0 }}>
-          {filteredPatterns.map((pattern) => (
-            <li 
-              key={pattern.id} 
-              style={{ 
-                border: "1px solid black", 
-                padding: "10px", 
-                margin: "10px", 
-                cursor: 'pointer' 
-              }}
-              onClick={() => togglePatternExpand(pattern.id)}
-            >
-              {/* Condensed View */}
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <img 
-                  src={pattern.image} 
-                  alt={pattern.title} 
-                  width="100" 
-                  style={{ marginRight: '10px' }} 
-                />
-                <h3>{pattern.brand} {pattern.pattern_number} - {pattern.title}</h3>
-              </div>
+        <ul style={{ listStyleType: "none", padding: 0 }}>
+          {filteredPatterns.map((pattern) => {
+            const { src, downloaded } = getImageInfo(pattern);
+            return (
+              <li
+                key={pattern.id}
+                style={{
+                  border: "1px solid black",
+                  padding: "10px",
+                  margin: "10px",
+                  cursor: "pointer",
+                }}
+                onClick={() => togglePatternExpand(pattern.id)}
+              >
+                {/* Condensed View */}
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <img
+                    src={src}
+                    alt={pattern.title}
+                    width="100"
+                    style={{ marginRight: "10px" }}
+                  />
+                  <h3>
+                    {pattern.brand} {pattern.pattern_number} -{" "}
+                    {pattern.title}
+                  </h3>
+                </div>
 
-              {/* Expanded View */}
-              {expandedPatternId === pattern.id && (
-                editingPatternId === pattern.id ? (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <select 
-                      name="brand" 
-                      value={editedPattern.brand} 
-                      onChange={handleEditChange}
-                    >
-                      {BRANDS.map(brand => (
-                        <option key={brand} value={brand}>{brand}</option>
-                      ))}
-                    </select>
-                    {Object.keys(newPattern)
-                      .filter(key => key !== 'brand')
-                      .map((key) => (
-                        <div key={key}>
-                          <label>{key}:</label>
-                          <input 
-                            name={key} 
-                            value={editedPattern[key] || ""} 
-                            onChange={handleEditChange} 
-                          />
-                        </div>
-                      ))}
-                    <button onClick={(e) => handleUpdate(pattern.id, e)}>Save</button>
-                    <button onClick={() => setEditingPatternId(null)}>Cancel</button>
-                  </div>
-                ) : (
-                  <div>
-                    {Object.keys(newPattern).map((key) => (
-                      key !== "image" && <p key={key}><strong>{key}:</strong> {pattern[key]}</p>
-                    ))}
-                    <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
-                    <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
-                  </div>
-                )
-              )}
-            </li>
-          ))}
+                {/* Expanded View */}
+                {expandedPatternId === pattern.id &&
+                  (editingPatternId === pattern.id ? (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <select
+                        name="brand"
+                        value={editedPattern.brand}
+                        onChange={handleEditChange}
+                      >
+                        {BRANDS.map((brand) => (
+                          <option key={brand} value={brand}>
+                            {brand}
+                          </option>
+                        ))}
+                      </select>
+                      {Object.keys(newPattern)
+                        .filter((key) => key !== "brand")
+                        .map((key) => (
+                          <div key={key}>
+                            <label>{key}:</label>
+                            <input
+                              name={key}
+                              value={editedPattern[key] || ""}
+                              onChange={handleEditChange}
+                            />
+                          </div>
+                        ))}
+                      <button onClick={(e) => handleUpdate(pattern.id, e)}>
+                        Save
+                      </button>
+                      <button onClick={() => setEditingPatternId(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {/* New checkbox field to indicate if the blob image is used */}
+                      <div>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={downloaded}
+                            readOnly
+                          />{" "}
+                          Downloaded Image
+                        </label>
+                      </div>
+                      {Object.keys(newPattern).map(
+                        (key) =>
+                          key !== "image" && (
+                            <p key={key}>
+                              <strong>{key}:</strong> {pattern[key]}
+                            </p>
+                          )
+                      )}
+                      <button onClick={(e) => handleEdit(pattern, e)}>
+                        Edit
+                      </button>
+                      <button onClick={(e) => handleDelete(pattern.id, e)}>
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
