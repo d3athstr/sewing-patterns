@@ -1,27 +1,19 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, LargeBinary
-from sqlalchemy.orm import relationship
-from database import Base
+from database import db
 
-class Pattern(Base):
-    __tablename__ = "patterns"
+class Pattern(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    brand = db.Column(db.String(50), nullable=False)
+    pattern_number = db.Column(db.String(50), nullable=False, unique=True)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    image = db.Column(db.String(255), nullable=True)
 
-    id = Column(Integer, primary_key=True, index=True)
-    brand = Column(String, index=True)
-    pattern_number = Column(String, index=True)
-    title = Column(String)
-    description = Column(String)
-    format = Column(String, default="Paper")  # Paper or PDF
-
-    # Define relationship to PatternPDFs
-    pdfs = relationship("PatternPDF", back_populates="pattern", cascade="all, delete")
-
-class PatternPDF(Base):
-    __tablename__ = "pattern_pdfs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    pattern_id = Column(Integer, ForeignKey("patterns.id", ondelete="CASCADE"))
-    file_data = Column(LargeBinary, nullable=False)  # Store PDF as BLOB
-    filename = Column(String, nullable=False)  # Original filename
-    category = Column(String, nullable=False)  # A4, Legal, Letter, A0, Instructions
-
-    pattern = relationship("Pattern", back_populates="pdfs")
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "brand": self.brand,
+            "pattern_number": self.pattern_number,
+            "title": self.title,
+            "description": self.description,
+            "image": self.image,
+        }

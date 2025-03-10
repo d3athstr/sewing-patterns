@@ -3,8 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_migrate import Migrate
 from scraper import scrape_pattern  # Ensure the scraper function is properly imported
-from database import SessionLocal
-from models import Pattern, PatternPDF
 
 app = Flask(__name__)
 CORS(app)
@@ -41,51 +39,6 @@ class Pattern(db.Model):
     
     def to_dict(self):
         return {col.name: getattr(self, col.name) for col in self.__table__.columns}
-
-@app.route("/patterns/upload_pdf/<int:pattern_id>", methods=["POST"])
-def upload_pdfs(pattern_id):
-    db = SessionLocal()
-    pattern = db.query(Pattern).filter(Pattern.id == pattern_id).first()
-
-    if not pattern:
-        return jsonify({"error": "Pattern not found"}), 404
-
-    if "pdf_files" not in request.files:
-        return jsonify({"error": "No files uploaded"}), 400
-
-    uploaded_files = request.files.getlist("pdf_files")
-
-    for pdf_file in uploaded_files:
-        category = request.form.get("category")  # A4, Legal, Letter, A0, Instructions
-        if category not in ["A4", "Legal", "Letter", "A0", "Instructions"]:
-            return jsonify({"error": "Invalid category"}), 400
-
-        new_pdf = PatternPDF(
-            pattern_id=pattern_id,
-            file_data=pdf_file.read(),
-            filename=pdf_file.filename,
-            category=category,
-        )
-        db.add(new_pdf)
-
-    db.commit()
-    return jsonify({"message": "PDFs uploaded successfully", "pattern_id": pattern_id})
-
-@app.route("/patterns/<int:pattern_id>/pdfs", methods=["GET"])
-def get_pattern_pdfs(pattern_id):
-    db = SessionLocal()
-    pdfs = db.query(PatternPDF).filter(PatternPDF.pattern_id == pattern_id).all()
-
-    if not pdfs:
-        return jsonify({"error": "No PDFs found for this pattern"}), 404
-
-    return jsonify([
-        {
-            "id": pdf.id,
-            "filename": pdf.filename,
-            "category": pdf.category
-        } for pdf in pdfs
-    ])
 
 # Fetch all patterns
 @app.route('/patterns', methods=['GET'])
@@ -174,7 +127,6 @@ def scrape():
     db.session.add(new_pattern)
     db.session.commit()
     return jsonify({"message": "Pattern added", "pattern": new_pattern.to_dict()})
-
 
 
 # Run Flask App
