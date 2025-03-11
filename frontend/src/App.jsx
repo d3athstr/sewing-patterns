@@ -20,6 +20,14 @@ function App() {
       .catch((err) => console.error(`Error fetching ${endpoint}:`, err));
   };
 
+  // Helper to format labels: remove underscores and convert to Title Case.
+  const formatLabel = (label) => {
+    return label
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   const [patterns, setPatterns] = useState([]);
   const [newPattern, setNewPattern] = useState({
     brand: BRANDS[0],
@@ -41,7 +49,6 @@ function App() {
     cosplay_notes: "",
     sewing_rating: "",
     notes: ""
-    // Removed the "image" field here as well
   });
 
   // New state for manual add form without the image text field.
@@ -95,7 +102,7 @@ function App() {
     };
   };
 
-  // New: Function to handle PDF file upload remains unchanged
+  // Function to handle PDF file upload remains unchanged
   const handlePdfUpload = (patternId) => {
     if (!pdfFile) {
       alert("Please select a file first.");
@@ -180,9 +187,9 @@ function App() {
       .catch((err) => console.error(err));
   };
 
-  // New: Function to handle submission of manual add with image file upload
+  // Function to handle submission of manual add with image file upload
   const handleManualAddSubmit = () => {
-    // Create FormData so that we can include the image file
+    // Create FormData to include the image file
     const formData = new FormData();
     // Append all fields from manualPattern
     for (const key in manualPattern) {
@@ -355,7 +362,12 @@ function App() {
               >
                 {/* Condensed View */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <img src={src} alt={pattern.title} width="100" style={{ marginRight: "10px" }} />
+                  <img
+                    src={src}
+                    alt={pattern.title}
+                    width="100"
+                    style={{ marginRight: "10px" }}
+                  />
                   <h3>
                     {pattern.brand} {pattern.pattern_number} - {pattern.title}
                   </h3>
@@ -364,7 +376,11 @@ function App() {
                   <div>
                     {editingPatternId === pattern.id ? (
                       <div onClick={(e) => e.stopPropagation()}>
-                        <select name="brand" value={editedPattern.brand} onChange={handleEditChange}>
+                        <select
+                          name="brand"
+                          value={editedPattern.brand}
+                          onChange={handleEditChange}
+                        >
                           {BRANDS.map((brand) => (
                             <option key={brand} value={brand}>
                               {brand}
@@ -376,76 +392,109 @@ function App() {
                           .map((key) => (
                             <div key={key}>
                               <label>{key}:</label>
-                              <input name={key} value={editedPattern[key] || ""} onChange={handleEditChange} />
+                              <input
+                                name={key}
+                                value={editedPattern[key] || ""}
+                                onChange={handleEditChange}
+                              />
                             </div>
                           ))}
-                        <button onClick={(e) => handleUpdate(pattern.id, e)}>Save</button>
-                        <button onClick={() => setEditingPatternId(null)}>Cancel</button>
+                        <button onClick={(e) => handleUpdate(pattern.id, e)}>
+                          Save
+                        </button>
+                        <button onClick={() => setEditingPatternId(null)}>
+                          Cancel
+                        </button>
                       </div>
                     ) : (
-                      <div>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
+                        {/* Enlarged image on the left */}
                         <div>
-                          <label>
-                            <input type="checkbox" checked={downloaded} readOnly /> Downloaded Image
-                          </label>
+                          <img src={src} alt={pattern.title} width="400" />
                         </div>
-                        {Object.keys(newPattern).map(
-                          (key) =>
-                            key !== "image" && (
-                              <p key={key}>
-                                <strong>{key}:</strong> {pattern[key]}
-                              </p>
-                            )
-                        )}
-                        <h4>PDF Files:</h4>
-                        <ul>
-                          {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
-                            pattern.pdf_files.map((pdf) => (
-                              <li key={pdf.id}>
-                                <a href={pdf.pdf_url} target="_blank" rel="noopener noreferrer">
-                                  {pdf.category} (Order: {pdf.file_order || "N/A"})
-                                </a>
-                                {pdf.downloaded && <span> ✅ Downloaded</span>}
-                              </li>
-                            ))
-                          ) : (
-                            <p>No PDFs attached.</p>
-                          )}
-                        </ul>
-                        <div
-                          onClick={(e) => e.stopPropagation()}
-                          style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
-                        >
-                          <select
-                            value={pdfCategory}
-                            onChange={(e) => setPdfCategory(e.target.value)}
-                            style={{ marginRight: "10px" }}
-                          >
-                            <option value="Instructions">Instructions</option>
-                            <option value="A4">A4</option>
-                            <option value="A0">A0</option>
-                            <option value="Letter">Letter</option>
-                            <option value="Legal">Legal</option>
-                          </select>
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={(e) => setPdfFile(e.target.files[0])}
-                          />
-                          <button
-                            onClick={() => handlePdfUpload(pattern.id)}
-                            disabled={uploadingPdf || !pdfFile}
-                            style={{ marginLeft: "10px" }}
-                          >
-                            {uploadingPdf ? "Uploading..." : "Upload PDF"}
-                          </button>
-                        </div>
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
-                          <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
+                        {/* Details on the right */}
+                        <div>
+                          <dl style={{ lineHeight: "1.6" }}>
+                            {Object.keys(pattern)
+                              .filter((key) => !["id", "image_url", "pdf_files", "downloaded"].includes(key))
+                              .map((key) => (
+                                <div key={key} style={{ marginBottom: "5px" }}>
+                                  <dt
+                                    style={{
+                                      fontWeight: "bold",
+                                      display: "inline-block",
+                                      width: "150px"
+                                    }}
+                                  >
+                                    {formatLabel(key)}:
+                                  </dt>
+                                  <dd
+                                    style={{
+                                      display: "inline-block",
+                                      marginLeft: "10px"
+                                    }}
+                                  >
+                                    {pattern[key]}
+                                  </dd>
+                                </div>
+                              ))}
+                          </dl>
                         </div>
                       </div>
                     )}
+
+                    {/* PDF Files and controls */}
+                    <h4>PDF Files:</h4>
+                    <ul>
+                      {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
+                        pattern.pdf_files.map((pdf) => (
+                          <li key={pdf.id}>
+                            <a
+                              href={pdf.pdf_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {pdf.category} (Order: {pdf.file_order || "N/A"})
+                            </a>
+                            {pdf.downloaded && <span> ✅ Downloaded</span>}
+                          </li>
+                        ))
+                      ) : (
+                        <p>No PDFs attached.</p>
+                      )}
+                    </ul>
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
+                    >
+                      <select
+                        value={pdfCategory}
+                        onChange={(e) => setPdfCategory(e.target.value)}
+                        style={{ marginRight: "10px" }}
+                      >
+                        <option value="Instructions">Instructions</option>
+                        <option value="A4">A4</option>
+                        <option value="A0">A0</option>
+                        <option value="Letter">Letter</option>
+                        <option value="Legal">Legal</option>
+                      </select>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => setPdfFile(e.target.files[0])}
+                      />
+                      <button
+                        onClick={() => handlePdfUpload(pattern.id)}
+                        disabled={uploadingPdf || !pdfFile}
+                        style={{ marginLeft: "10px" }}
+                      >
+                        {uploadingPdf ? "Uploading..." : "Upload PDF"}
+                      </button>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
+                      <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
+                    </div>
                   </div>
                 )}
               </li>
@@ -454,7 +503,7 @@ function App() {
         </ul>
       )}
 
-      {/* New: Manual Add Modal */}
+      {/* Manual Add Modal */}
       {showManualAdd && (
         <div
           style={{
@@ -505,7 +554,9 @@ function App() {
               .filter((key) => key !== "brand")
               .map((key) => (
                 <div key={key} style={{ marginTop: "10px" }}>
-                  <label style={{ textTransform: "capitalize" }}>{key}:</label>
+                  <label style={{ textTransform: "capitalize" }}>
+                    {formatLabel(key)}:
+                  </label>
                   <input
                     name={key}
                     value={manualPattern[key]}
@@ -525,7 +576,7 @@ function App() {
                   />
                 </div>
               ))}
-            {/* New: Image file upload field */}
+            {/* Image file upload field */}
             <div style={{ marginTop: "10px" }}>
               <label>Upload Image:</label>
               <input
@@ -542,7 +593,10 @@ function App() {
               />
             </div>
             <div style={{ marginTop: "20px", textAlign: "right" }}>
-              <button onClick={() => setShowManualAdd(false)} style={{ marginRight: "10px" }}>
+              <button
+                onClick={() => setShowManualAdd(false)}
+                style={{ marginRight: "10px" }}
+              >
                 Cancel
               </button>
               <button onClick={handleManualAddSubmit}>Save</button>
