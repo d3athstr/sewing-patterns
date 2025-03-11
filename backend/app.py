@@ -1,8 +1,8 @@
 from flask import Flask, request, jsonify, Response, url_for
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_migrate import Migrate
-from scraper import scrape_pattern  # Ensure the scraper function is properly imported
+from models import Pattern, PatternPDF, db
+from scraper import scrape_pattern
 
 app = Flask(__name__)
 CORS(app)
@@ -11,93 +11,135 @@ CORS(app)
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://user:password@sewing_patterns_db/sewing_patterns"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-db = SQLAlchemy(app)
+# Initialize the db with the Flask app
+db.init_app(app)
 migrate = Migrate(app, db)
 
-# Define the Pattern model with both a fallback URL and binary image data
-class Pattern(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    brand = db.Column(db.String(50), nullable=False)
-    pattern_number = db.Column(db.String(50), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    image = db.Column(db.String(500))  # Fallback URL for the image
-    image_data = db.Column(db.LargeBinary, nullable=True)  # Binary image data (if downloaded)
-    difficulty = db.Column(db.String(50))
-    size = db.Column(db.String(50))
-    sex = db.Column(db.String(50))
-    item_type = db.Column(db.String(100))
-    format = db.Column(db.String(50))
-    inventory_qty = db.Column(db.Integer)
-    cut_status = db.Column(db.String(50))
-    cut_size = db.Column(db.String(50))
-    cosplay_hackable = db.Column(db.Boolean)
-    cosplay_notes = db.Column(db.Text)
-    material_recommendations = db.Column(db.Text)
-    yardage = db.Column(db.Text)  # NEW: Added yardage field
-    notions = db.Column(db.Text)
-    notes = db.Column(db.Text)
-    
-    def to_dict(self):
-        """
-        Serialize the pattern record.
-        If image_data is present, return an image_url that points to the endpoint serving the blob.
-        Otherwise, return the fallback URL stored in 'image'.
-        """
-        # Create a dictionary for all columns except the potentially large binary data.
-        d = {col.name: getattr(self, col.name) for col in self.__table__.columns if col.name != "image_data"}
-        if self.image_data:
-            d["image_url"] = url_for("get_pattern_image", pattern_id=self.id, _external=True)
-            d["downloaded"] = True
-        else:
-            d["image_url"] = self.image  # fallback URL
-            d["downloaded"] = False
-        return d
-
-# New route: Serve the binary image data if available
+# Serve binary image data
 @app.route("/pattern_image/<int:pattern_id>")
 def get_pattern_image(pattern_id):
     pattern = Pattern.query.get(pattern_id)
     if pattern and pattern.image_data:
-        # Adjust the mimetype if your images are not JPEG.
         return Response(pattern.image_data, mimetype="image/jpeg")
     return jsonify({"error": "Image not found"}), 404
 
-# Fetch all patterns
+# Serve binary PDF data
+@app.route("/pattern_pdf/<int:pdf_id>")
+def get_pattern_pdf(pdf_id):
+    pdf = PatternPDF.query.get(pdf_id)
+    if pdf and pdf.pdf_data:
+        return Response(pdf.pdf_data, mimetype="application/pdf")
+    return jsonify({"error": "PDF not found"}), 404
+
+# Get all PDFs
+@app.route('/pattern_pdfs', methods=['GET'])
+def get_pattern_pdfs():
+    pdfs = PatternPDF.query.all()
+    return jsonify([pdf.to_dict() for pdf in pdfs])
+
+# Upload a PDF file to a pattern
+@app.route('/pattern_pdfs/upload', methods=['POST'])
+def upload_pattern_pdf():
+    pattern_id = request.form.get('pattern_id')
+    category = request.form.get('category')  # e.g., A4, A0, Instructions, etc.
+    file_order = request.form.get('file_order', type=int)
+    pdf_file = request.files.get('pdf')
+
+    if not pattern_id or not category or not pdf_file:
+        return jsonify({"error": "Pattern ID, category, and file are required"}), 400
+
+    pattern = Pattern.query.get(pattern_id)
+    if not pattern:
+        return jsonify({"error": "Pattern not found"}), 404
+
+    new_pdf = PatternPDF(
+        pattern_id=pattern_id,
+        category=category,
+        file_order=file_order,
+        pdf_data=pdf_file.read()
+    )
+
+    db.session.add(new_pdf)
+    db.session.commit()
+    return jsonify(new_pdf.to_dict()), 201
+
+# Get all patterns
 @app.route('/patterns', methods=['GET'])
 def get_patterns():
     patterns = Pattern.query.all()
     return jsonify([p.to_dict() for p in patterns])
 
-# Add a new pattern
+# Add a new pattern, including PDFs if provided
 @app.route('/patterns', methods=['POST'])
 def add_pattern():
     data = request.json
-    
+
     valid_keys = {"brand", "pattern_number", "title", "description", "image", "image_data", "difficulty",
                   "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
                   "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
                   "yardage", "notions", "notes"}
-
     filtered_data = {key: data[key] for key in valid_keys if key in data}
-    
-    # Ensure required fields exist
+
     if not filtered_data.get("brand") or not filtered_data.get("pattern_number"):
         return jsonify({"error": "Brand and Pattern Number are required"}), 400
-    
+
     new_pattern = Pattern(**filtered_data)
     db.session.add(new_pattern)
     db.session.commit()
 
-    return jsonify(new_pattern.to_dict())
+    # Handle PDF uploads if included
+    if "pdfs" in data:
+        for pdf in data["pdfs"]:
+            new_pdf = PatternPDF(
+                pattern_id=new_pattern.id,
+                category=pdf.get("category"),
+                file_order=pdf.get("file_order"),
+                pdf_url=pdf.get("pdf_url")
+            )
+            db.session.add(new_pdf)
 
-# Update a pattern
+    db.session.commit()
+    return jsonify(new_pattern.to_dict()), 201
+
+# Add a PDF to an existing pattern
+@app.route('/patterns/<int:pattern_id>/pdfs', methods=['POST'])
+def add_pdf_to_pattern(pattern_id):
+    if 'pdf' in request.files:
+        # Handle file upload
+        pdf_file = request.files['pdf']
+        category = request.form.get("category", "Instructions")
+        file_order = request.form.get("file_order", type=int)
+
+        new_pdf = PatternPDF(
+            pattern_id=pattern_id,
+            category=category,
+            file_order=file_order,
+            pdf_data=pdf_file.read()
+        )
+    else:
+        # Handle URL-based PDF attachment
+        data = request.json
+        required_keys = {"category", "pdf_url"}
+        if not all(key in data for key in required_keys):
+            return jsonify({"error": "Category and PDF URL are required"}), 400
+
+        new_pdf = PatternPDF(
+            pattern_id=pattern_id,
+            category=data["category"],
+            file_order=data.get("file_order"),
+            pdf_url=data["pdf_url"]
+        )
+
+    db.session.add(new_pdf)
+    db.session.commit()
+    return jsonify(new_pdf.to_dict()), 201
+
+# Update an existing pattern
 @app.route('/patterns/<int:id>', methods=['PUT'])
 def update_pattern(id):
     pattern = Pattern.query.get_or_404(id)
     data = request.json
 
-    # Convert boolean fields properly
     if "cosplay_hackable" in data:
         if isinstance(data["cosplay_hackable"], str):
             data["cosplay_hackable"] = data["cosplay_hackable"].strip().lower() in ["yes", "true", "1"]
@@ -129,27 +171,23 @@ def scrape():
         return jsonify({"error": "Brand and Pattern Number are required"}), 400
 
     scraped_data = scrape_pattern(brand, pattern_number)
-    
-    # Ensure scraped_data is a dictionary and has required fields
+
     if not isinstance(scraped_data, dict) or "brand" not in scraped_data or "pattern_number" not in scraped_data:
         return jsonify({"error": "Failed to scrape valid pattern data"}), 500
 
     existing_pattern = Pattern.query.filter_by(brand=brand, pattern_number=pattern_number).first()
 
     if existing_pattern:
-        # Update existing pattern
         for key, value in scraped_data.items():
             setattr(existing_pattern, key, value)
         existing_pattern.inventory_qty = (existing_pattern.inventory_qty or 0) + 1
         db.session.commit()
         return jsonify({"message": "Pattern updated", "pattern": existing_pattern.to_dict()})
 
-    # Add new pattern
     new_pattern = Pattern(**scraped_data)
     db.session.add(new_pattern)
     db.session.commit()
     return jsonify({"message": "Pattern added", "pattern": new_pattern.to_dict()})
 
-# Run Flask App
 if __name__ == '__main__':
     app.run(debug=False, host="0.0.0.0")

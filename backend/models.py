@@ -21,7 +21,8 @@ class Pattern(db.Model):
     pattern_number = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    image = db.Column(db.String(500))  # Fallback URL
+    image = db.Column(db.String(500))  # Fallback URL for the image
+    image_data = db.Column(db.LargeBinary, nullable=True)  # Binary image data
     difficulty = db.Column(db.String(50))
     size = db.Column(db.String(50))
     sex = db.Column(db.String(50))
@@ -36,21 +37,43 @@ class Pattern(db.Model):
     yardage = db.Column(db.Text)
     notions = db.Column(db.Text)
     notes = db.Column(db.Text)
-    # New column to store the binary image data (if downloaded)
-    image_data = db.Column(db.LargeBinary)
-
+    
+    # Relationship to PDFs
+    pdf_files = db.relationship('PatternPDF', backref='pattern', lazy=True)
+    
     def to_dict(self):
-        """
-        Serialize the pattern data.
-        If image_data exists, return an image_url that points to the blob-serving endpoint.
-        Otherwise, return the fallback URL stored in 'image'.
-        """
-        # Exclude image_data from the dict (it can be large) but add a computed image_url.
-        d = {col.name: getattr(self, col.name) for col in self.__table__.columns if col.name != "image_data"}
+        d = {col.name: getattr(self, col.name)
+             for col in self.__table__.columns if col.name != "image_data"}
         if self.image_data:
             d["image_url"] = url_for("get_pattern_image", pattern_id=self.id, _external=True)
+            d["downloaded"] = True
         else:
-            d["image_url"] = self.image  # fallback URL
+            d["image_url"] = self.image
+            d["downloaded"] = False
+        d["pdf_files"] = [pdf.to_dict() for pdf in self.pdf_files]
+        return d
+
+class PatternPDF(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    pattern_id = db.Column(db.Integer, db.ForeignKey('pattern.id'), nullable=False)
+    category = db.Column(db.String(20), nullable=False)
+    file_order = db.Column(db.Integer, nullable=True)
+    pdf_url = db.Column(db.String(500))  # Fallback URL for the PDF
+    pdf_data = db.Column(db.LargeBinary, nullable=True)  # Binary PDF file data
+
+    def to_dict(self):
+        d = {
+            "id": self.id,
+            "category": self.category,
+            "file_order": self.file_order,
+        }
+        if self.pdf_data:
+            # New: Use get_pattern_pdf endpoint to serve PDF blob data.
+            d["pdf_url"] = url_for("get_pattern_pdf", pdf_id=self.id, _external=True)
+            d["downloaded"] = True
+        else:
+            d["pdf_url"] = self.pdf_url
+            d["downloaded"] = False
         return d
 
 # Endpoint to serve the blob image data
@@ -61,6 +84,20 @@ def get_pattern_image(pattern_id):
         # Adjust the mimetype if your images are not JPEG.
         return Response(pattern.image_data, mimetype="image/jpeg")
     return jsonify({"error": "Image not found"}), 404
+
+# New Endpoint: Serve the binary PDF data
+@app.route("/pattern_pdf/<int:pdf_id>")
+def get_pattern_pdf(pdf_id):
+    pdf = PatternPDF.query.get(pdf_id)
+    if pdf and pdf.pdf_data:
+        return Response(pdf.pdf_data, mimetype="application/pdf")
+    return jsonify({"error": "PDF not found"}), 404
+
+# Optional New Endpoint: Fetch all PDF records
+@app.route('/pattern_pdfs', methods=['GET'])
+def get_pattern_pdfs():
+    pdfs = PatternPDF.query.all()
+    return jsonify([pdf.to_dict() for pdf in pdfs])
 
 # Fetch all patterns
 @app.route('/patterns', methods=['GET'])
