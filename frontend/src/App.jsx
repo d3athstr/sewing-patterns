@@ -49,7 +49,7 @@ function App() {
   const [filters, setFilters] = useState({});
   const [expandedPatternId, setExpandedPatternId] = useState(null);
 
-  // NEW: PDF upload states
+  // New: PDF upload states
   const [pdfFile, setPdfFile] = useState(null);
   const [pdfCategory, setPdfCategory] = useState("Instructions");
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -61,15 +61,15 @@ function App() {
       .catch((err) => console.error("Error fetching data:", err));
   }, []);
 
-  // Helper function: returns the image source and downloaded flag
+  // Helper: returns image info from the backend
   const getImageInfo = (pattern) => {
     return {
       src: pattern.image_url,
-      downloaded: pattern.downloaded
+      downloaded: pattern.downloaded,
     };
   };
 
-  // NEW: Function to handle PDF file upload
+  // New: Function to handle PDF file upload
   const handlePdfUpload = (patternId) => {
     if (!pdfFile) {
       alert("Please select a file first.");
@@ -77,7 +77,6 @@ function App() {
     }
 
     setUploadingPdf(true);
-
     const formData = new FormData();
     formData.append("pattern_id", patternId);
     formData.append("category", pdfCategory);
@@ -90,7 +89,6 @@ function App() {
       .then((res) => res.json())
       .then((data) => {
         alert("PDF uploaded successfully!");
-        // Update pattern with the new PDF record
         setPatterns((prevPatterns) =>
           prevPatterns.map((p) =>
             p.id === patternId
@@ -98,7 +96,6 @@ function App() {
               : p
           )
         );
-        // Reset PDF state
         setPdfFile(null);
         setUploadingPdf(false);
       })
@@ -258,9 +255,7 @@ function App() {
       <select
         name="brand"
         value={newPattern.brand}
-        onChange={(e) =>
-          setNewPattern({ ...newPattern, brand: e.target.value })
-        }
+        onChange={(e) => setNewPattern({ ...newPattern, brand: e.target.value })}
       >
         {BRANDS.map((brand) => (
           <option key={brand} value={brand}>
@@ -272,9 +267,7 @@ function App() {
         name="pattern_number"
         placeholder="Pattern Number"
         value={newPattern.pattern_number}
-        onChange={(e) =>
-          setNewPattern({ ...newPattern, pattern_number: e.target.value })
-        }
+        onChange={(e) => setNewPattern({ ...newPattern, pattern_number: e.target.value })}
         required
       />
       <button onClick={handleScrapeAndAdd}>Scrape & Add</button>
@@ -299,12 +292,7 @@ function App() {
               >
                 {/* Condensed View */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <img
-                    src={src}
-                    alt={pattern.title}
-                    width="100"
-                    style={{ marginRight: "10px" }}
-                  />
+                  <img src={src} alt={pattern.title} width="100" style={{ marginRight: "10px" }} />
                   <h3>
                     {pattern.brand} {pattern.pattern_number} - {pattern.title}
                   </h3>
@@ -312,71 +300,98 @@ function App() {
 
                 {expandedPatternId === pattern.id && (
                   <div>
-                    {/* Checkbox for downloaded image */}
-                    <label>
-                      <input type="checkbox" checked={downloaded} readOnly /> Downloaded Image
-                    </label>
+                    {/* Editing Form */}
+                    {editingPatternId === pattern.id ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <select name="brand" value={editedPattern.brand} onChange={handleEditChange}>
+                          {BRANDS.map((brand) => (
+                            <option key={brand} value={brand}>
+                              {brand}
+                            </option>
+                          ))}
+                        </select>
+                        {Object.keys(newPattern)
+                          .filter((key) => key !== "brand")
+                          .map((key) => (
+                            <div key={key}>
+                              <label>{key}:</label>
+                              <input name={key} value={editedPattern[key] || ""} onChange={handleEditChange} />
+                            </div>
+                          ))}
+                        <button onClick={(e) => handleUpdate(pattern.id, e)}>Save</button>
+                        <button onClick={() => setEditingPatternId(null)}>Cancel</button>
+                      </div>
+                    ) : (
+                      <div>
+                        {/* Non-editing Expanded View */}
+                        <div>
+                          <label>
+                            <input type="checkbox" checked={downloaded} readOnly /> Downloaded Image
+                          </label>
+                        </div>
+                        {Object.keys(newPattern).map(
+                          (key) =>
+                            key !== "image" && (
+                              <p key={key}>
+                                <strong>{key}:</strong> {pattern[key]}
+                              </p>
+                            )
+                        )}
 
-                    {/* Display all details */}
-                    {Object.keys(newPattern).map(
-                      (key) =>
-                        key !== "image" && (
-                          <p key={key}>
-                            <strong>{key}:</strong> {pattern[key]}
-                          </p>
-                        )
+                        {/* Display PDF Files */}
+                        <h4>PDF Files:</h4>
+                        <ul>
+                          {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
+                            pattern.pdf_files.map((pdf) => (
+                              <li key={pdf.id}>
+                                <a href={pdf.pdf_url} target="_blank" rel="noopener noreferrer">
+                                  {pdf.category} (Order: {pdf.file_order || "N/A"})
+                                </a>
+                                {pdf.downloaded && <span> ✅ Downloaded</span>}
+                              </li>
+                            ))
+                          ) : (
+                            <p>No PDFs attached.</p>
+                          )}
+                        </ul>
+
+                        {/* New: Attach PDF Section */}
+                        <div
+                          onClick={(e) => e.stopPropagation()} // Prevent collapse when interacting with PDF controls
+                          style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
+                        >
+                          <select
+                            value={pdfCategory}
+                            onChange={(e) => setPdfCategory(e.target.value)}
+                            style={{ marginRight: "10px" }}
+                          >
+                            <option value="Instructions">Instructions</option>
+                            <option value="A4">A4</option>
+                            <option value="A0">A0</option>
+                            <option value="Letter">Letter</option>
+                            <option value="Legal">Legal</option>
+                          </select>
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => setPdfFile(e.target.files[0])}
+                          />
+                          <button
+                            onClick={() => handlePdfUpload(pattern.id)}
+                            disabled={uploadingPdf || !pdfFile}
+                            style={{ marginLeft: "10px" }}
+                          >
+                            {uploadingPdf ? "Uploading..." : "Upload PDF"}
+                          </button>
+                        </div>
+
+                        {/* Wrap Edit and Delete buttons in a container that stops propagation */}
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
+                          <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
+                        </div>
+                      </div>
                     )}
-
-                    {/* Display PDF Files */}
-                    <h4>PDF Files:</h4>
-                    <ul>
-                      {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
-                        pattern.pdf_files.map((pdf) => (
-                          <li key={pdf.id}>
-                            <a href={pdf.pdf_url} target="_blank" rel="noopener noreferrer">
-                              {pdf.category} (Order: {pdf.file_order || "N/A"})
-                            </a>
-                            {pdf.downloaded && <span> ✅ Downloaded</span>}
-                          </li>
-                        ))
-                      ) : (
-                        <p>No PDFs attached.</p>
-                      )}
-                    </ul>
-
-                    {/* NEW: Attach PDF Section */}
-                    <div
-                      onClick={(e) => e.stopPropagation()} // Prevent collapse when interacting with PDF controls
-                      style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
-                    >
-                      <select
-                        value={pdfCategory}
-                        onChange={(e) => setPdfCategory(e.target.value)}
-                        style={{ marginRight: "10px" }}
-                      >
-                        <option value="Instructions">Instructions</option>
-                        <option value="A4">A4</option>
-                        <option value="A0">A0</option>
-                        <option value="Letter">Letter</option>
-                        <option value="Legal">Legal</option>
-                      </select>
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={(e) => setPdfFile(e.target.files[0])}
-                      />
-                      <button
-                        onClick={() => handlePdfUpload(pattern.id)}
-                        disabled={uploadingPdf || !pdfFile}
-                        style={{ marginLeft: "10px" }}
-                      >
-                        {uploadingPdf ? "Uploading..." : "Upload PDF"}
-                      </button>
-                    </div>
-
-                    {/* Edit and Delete */}
-                    <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
-                    <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
                   </div>
                 )}
               </li>
