@@ -44,6 +44,31 @@ function App() {
     image: "",
   });
 
+  // New state for manual add form
+  const [manualPattern, setManualPattern] = useState({
+    brand: "",
+    pattern_number: "",
+    title: "",
+    description: "",
+    difficulty: "",
+    size: "",
+    sex: "",
+    item_type: "",
+    format: "",
+    inventory_qty: "",
+    cut_status: "",
+    cut_size: "",
+    material_recommendations: "",
+    yardage: "",
+    notions: "",
+    cosplay_hackable: "",
+    cosplay_notes: "",
+    sewing_rating: "",
+    notes: "",
+    image: "",
+  });
+  const [showManualAdd, setShowManualAdd] = useState(false);
+
   const [editingPatternId, setEditingPatternId] = useState(null);
   const [editedPattern, setEditedPattern] = useState({});
   const [filters, setFilters] = useState({});
@@ -163,6 +188,44 @@ function App() {
       .catch((err) => console.error(err));
   };
 
+  // New: Function to handle submission of manual add
+  const handleManualAddSubmit = () => {
+    fetch(`${API_BASE_URL}/patterns`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(manualPattern),
+    })
+      .then((res) => res.json())
+      .then((addedPattern) => {
+        setPatterns((prev) => [...prev, addedPattern]);
+        // Clear manualPattern state
+        setManualPattern({
+          brand: "",
+          pattern_number: "",
+          title: "",
+          description: "",
+          difficulty: "",
+          size: "",
+          sex: "",
+          item_type: "",
+          format: "",
+          inventory_qty: "",
+          cut_status: "",
+          cut_size: "",
+          material_recommendations: "",
+          yardage: "",
+          notions: "",
+          cosplay_hackable: "",
+          cosplay_notes: "",
+          sewing_rating: "",
+          notes: "",
+          image: "",
+        });
+        setShowManualAdd(false);
+      })
+      .catch((err) => console.error("Error adding manual pattern:", err));
+  };
+
   const handleEdit = (pattern, e) => {
     if (e) {
       e.stopPropagation();
@@ -271,6 +334,10 @@ function App() {
         required
       />
       <button onClick={handleScrapeAndAdd}>Scrape & Add</button>
+      {/* New Manual Add Button */}
+      <button onClick={() => setShowManualAdd(true)} style={{ marginLeft: "10px" }}>
+        Manual Add
+      </button>
 
       {/* List of Patterns */}
       {filteredPatterns.length === 0 ? (
@@ -357,7 +424,7 @@ function App() {
 
                         {/* New: Attach PDF Section */}
                         <div
-                          onClick={(e) => e.stopPropagation()} // Prevent collapse when interacting with PDF controls
+                          onClick={(e) => e.stopPropagation()}
                           style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
                         >
                           <select
@@ -398,6 +465,88 @@ function App() {
             );
           })}
         </ul>
+      )}
+
+      {/* New: Manual Add Modal */}
+      {showManualAdd && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#333",
+              color: "#fff",
+              padding: "20px",
+              borderRadius: "4px",
+              width: "90%",
+              maxWidth: "500px",
+              maxHeight: "90%",
+              overflowY: "auto",
+            }}
+          >
+            <h2>Manual Add Pattern</h2>
+            {/* Manual Add Form */}
+            <div>
+              <label>Brand:</label>
+              {/* Changed Brand from dropdown to text input */}
+              <input
+                name="brand"
+                value={manualPattern.brand}
+                onChange={(e) =>
+                  setManualPattern({ ...manualPattern, brand: e.target.value })
+                }
+                style={{
+                  width: "100%",
+                  backgroundColor: "#fff",
+                  color: "#000",
+                  padding: "5px",
+                  marginTop: "5px",
+                }}
+              />
+            </div>
+            {Object.keys(manualPattern)
+              .filter((key) => key !== "brand")
+              .map((key) => (
+                <div key={key} style={{ marginTop: "10px" }}>
+                  <label style={{ textTransform: "capitalize" }}>{key}:</label>
+                  <input
+                    name={key}
+                    value={manualPattern[key]}
+                    onChange={(e) =>
+                      setManualPattern({
+                        ...manualPattern,
+                        [e.target.name]: e.target.value,
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      backgroundColor: "#fff",
+                      color: "#000",
+                      padding: "5px",
+                      marginTop: "5px",
+                    }}
+                  />
+                </div>
+              ))}
+            <div style={{ marginTop: "20px", textAlign: "right" }}>
+              <button onClick={() => setShowManualAdd(false)} style={{ marginRight: "10px" }}>
+                Cancel
+              </button>
+              <button onClick={handleManualAddSubmit}>Save</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
