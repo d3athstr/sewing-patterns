@@ -72,13 +72,28 @@ def get_patterns():
 # Add a new pattern, including PDFs if provided
 @app.route('/patterns', methods=['POST'])
 def add_pattern():
-    data = request.json
+    # If the request is multipart/form-data, process form and files
+    if request.content_type.startswith('multipart/form-data'):
+        data = request.form.to_dict()
+        valid_keys = {"brand", "pattern_number", "title", "description", "difficulty",
+                      "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
+                      "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
+                      "yardage", "notions", "notes"}
+        filtered_data = {key: data[key] for key in valid_keys if key in data}
+        
+        # Check for an uploaded image file
+        image_file = request.files.get('image')
+        if image_file:
+            filtered_data["image_data"] = image_file.read()
 
-    valid_keys = {"brand", "pattern_number", "title", "description", "image", "image_data", "difficulty",
-                  "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
-                  "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
-                  "yardage", "notions", "notes"}
-    filtered_data = {key: data[key] for key in valid_keys if key in data}
+    else:
+        # Fallback to JSON input
+        data = request.json
+        valid_keys = {"brand", "pattern_number", "title", "description", "image", "image_data", "difficulty",
+                      "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
+                      "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
+                      "yardage", "notions", "notes"}
+        filtered_data = {key: data[key] for key in valid_keys if key in data}
 
     if not filtered_data.get("brand") or not filtered_data.get("pattern_number"):
         return jsonify({"error": "Brand and Pattern Number are required"}), 400
@@ -87,7 +102,7 @@ def add_pattern():
     db.session.add(new_pattern)
     db.session.commit()
 
-    # Handle PDF uploads if included
+    # Handle PDF uploads if included (existing code)
     if "pdfs" in data:
         for pdf in data["pdfs"]:
             new_pdf = PatternPDF(
@@ -97,7 +112,6 @@ def add_pattern():
                 pdf_url=pdf.get("pdf_url")
             )
             db.session.add(new_pdf)
-
     db.session.commit()
     return jsonify(new_pattern.to_dict()), 201
 

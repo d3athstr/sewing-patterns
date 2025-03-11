@@ -40,11 +40,11 @@ function App() {
     cosplay_hackable: "",
     cosplay_notes: "",
     sewing_rating: "",
-    notes: "",
-    image: "",
+    notes: ""
+    // Removed the "image" field here as well
   });
 
-  // New state for manual add form
+  // New state for manual add form without the image text field.
   const [manualPattern, setManualPattern] = useState({
     brand: "",
     pattern_number: "",
@@ -64,11 +64,12 @@ function App() {
     cosplay_hackable: "",
     cosplay_notes: "",
     sewing_rating: "",
-    notes: "",
-    image: "",
+    notes: ""
   });
-  const [showManualAdd, setShowManualAdd] = useState(false);
+  // New state to store the image file for manual add
+  const [manualImageFile, setManualImageFile] = useState(null);
 
+  const [showManualAdd, setShowManualAdd] = useState(false);
   const [editingPatternId, setEditingPatternId] = useState(null);
   const [editedPattern, setEditedPattern] = useState({});
   const [filters, setFilters] = useState({});
@@ -94,19 +95,17 @@ function App() {
     };
   };
 
-  // New: Function to handle PDF file upload
+  // New: Function to handle PDF file upload remains unchanged
   const handlePdfUpload = (patternId) => {
     if (!pdfFile) {
       alert("Please select a file first.");
       return;
     }
-
     setUploadingPdf(true);
     const formData = new FormData();
     formData.append("pattern_id", patternId);
     formData.append("category", pdfCategory);
     formData.append("pdf", pdfFile);
-
     fetch(`${API_BASE_URL}/pattern_pdfs/upload`, {
       method: "POST",
       body: formData,
@@ -133,29 +132,23 @@ function App() {
 
   const handleScrapeAndAdd = () => {
     const scrapeUrl = `${API_BASE_URL}/scrape?brand=${newPattern.brand}&pattern_number=${newPattern.pattern_number}`;
-
     fetch(scrapeUrl)
       .then((res) => res.json())
       .then((scrapedData) => {
         console.log("✅ Raw Scraped Response:", scrapedData);
-
         if (!scrapedData.brand || !scrapedData.pattern_number) {
           throw new Error("❌ Scraped data is incomplete.");
         }
-
         return fetchData("patterns").then((patterns) => {
           const existingPattern = patterns.find(
             (p) =>
               p.brand === scrapedData.brand &&
               p.pattern_number === scrapedData.pattern_number
           );
-
           const url = existingPattern
             ? `${API_BASE_URL}/patterns/${existingPattern.id}`
             : `${API_BASE_URL}/patterns`;
-
           const method = existingPattern ? "PUT" : "POST";
-
           const body = JSON.stringify(
             existingPattern
               ? {
@@ -165,7 +158,6 @@ function App() {
                 }
               : scrapedData
           );
-
           return fetch(url, {
             method,
             headers: { "Content-Type": "application/json" },
@@ -188,17 +180,27 @@ function App() {
       .catch((err) => console.error(err));
   };
 
-  // New: Function to handle submission of manual add
+  // New: Function to handle submission of manual add with image file upload
   const handleManualAddSubmit = () => {
+    // Create FormData so that we can include the image file
+    const formData = new FormData();
+    // Append all fields from manualPattern
+    for (const key in manualPattern) {
+      formData.append(key, manualPattern[key]);
+    }
+    // Append the image file if one is selected
+    if (manualImageFile) {
+      formData.append("image", manualImageFile);
+    }
+    // POST using multipart/form-data
     fetch(`${API_BASE_URL}/patterns`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(manualPattern),
+      body: formData,
     })
       .then((res) => res.json())
       .then((addedPattern) => {
         setPatterns((prev) => [...prev, addedPattern]);
-        // Clear manualPattern state
+        // Clear manualPattern state and image file
         setManualPattern({
           brand: "",
           pattern_number: "",
@@ -218,18 +220,16 @@ function App() {
           cosplay_hackable: "",
           cosplay_notes: "",
           sewing_rating: "",
-          notes: "",
-          image: "",
+          notes: ""
         });
+        setManualImageFile(null);
         setShowManualAdd(false);
       })
       .catch((err) => console.error("Error adding manual pattern:", err));
   };
 
   const handleEdit = (pattern, e) => {
-    if (e) {
-      e.stopPropagation();
-    }
+    if (e) e.stopPropagation();
     setEditingPatternId(pattern.id);
     setEditedPattern({ ...pattern });
     setExpandedPatternId(pattern.id);
@@ -241,9 +241,7 @@ function App() {
   };
 
   const handleUpdate = (id, e) => {
-    if (e) {
-      e.stopPropagation();
-    }
+    if (e) e.stopPropagation();
     fetch(`${API_BASE_URL}/patterns/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -260,9 +258,7 @@ function App() {
   };
 
   const handleDelete = (id, e) => {
-    if (e) {
-      e.stopPropagation();
-    }
+    if (e) e.stopPropagation();
     fetch(`${API_BASE_URL}/patterns/${id}`, { method: "DELETE" })
       .then((res) => {
         if (res.ok) {
@@ -364,10 +360,8 @@ function App() {
                     {pattern.brand} {pattern.pattern_number} - {pattern.title}
                   </h3>
                 </div>
-
                 {expandedPatternId === pattern.id && (
                   <div>
-                    {/* Editing Form */}
                     {editingPatternId === pattern.id ? (
                       <div onClick={(e) => e.stopPropagation()}>
                         <select name="brand" value={editedPattern.brand} onChange={handleEditChange}>
@@ -390,7 +384,6 @@ function App() {
                       </div>
                     ) : (
                       <div>
-                        {/* Non-editing Expanded View */}
                         <div>
                           <label>
                             <input type="checkbox" checked={downloaded} readOnly /> Downloaded Image
@@ -404,8 +397,6 @@ function App() {
                               </p>
                             )
                         )}
-
-                        {/* Display PDF Files */}
                         <h4>PDF Files:</h4>
                         <ul>
                           {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
@@ -421,8 +412,6 @@ function App() {
                             <p>No PDFs attached.</p>
                           )}
                         </ul>
-
-                        {/* New: Attach PDF Section */}
                         <div
                           onClick={(e) => e.stopPropagation()}
                           style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
@@ -451,8 +440,6 @@ function App() {
                             {uploadingPdf ? "Uploading..." : "Upload PDF"}
                           </button>
                         </div>
-
-                        {/* Wrap Edit and Delete buttons in a container that stops propagation */}
                         <div onClick={(e) => e.stopPropagation()}>
                           <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
                           <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
@@ -499,7 +486,6 @@ function App() {
             {/* Manual Add Form */}
             <div>
               <label>Brand:</label>
-              {/* Changed Brand from dropdown to text input */}
               <input
                 name="brand"
                 value={manualPattern.brand}
@@ -539,6 +525,22 @@ function App() {
                   />
                 </div>
               ))}
+            {/* New: Image file upload field */}
+            <div style={{ marginTop: "10px" }}>
+              <label>Upload Image:</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setManualImageFile(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  backgroundColor: "#fff",
+                  color: "#000",
+                  padding: "5px",
+                  marginTop: "5px",
+                }}
+              />
+            </div>
             <div style={{ marginTop: "20px", textAlign: "right" }}>
               <button onClick={() => setShowManualAdd(false)} style={{ marginRight: "10px" }}>
                 Cancel
