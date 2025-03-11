@@ -175,6 +175,15 @@ def delete_pattern(id):
     db.session.commit()
     return jsonify({"message": "Pattern deleted"})
 
+@app.route('/pattern_pdfs/<int:pdf_id>', methods=['DELETE'])
+def delete_pattern_pdf(pdf_id):
+    pdf = PatternPDF.query.get(pdf_id)
+    if not pdf:
+        return jsonify({"error": "PDF not found"}), 404
+    db.session.delete(pdf)
+    db.session.commit()
+    return jsonify({"message": "PDF deleted"}), 200
+
 # Scrape and add pattern
 @app.route("/scrape", methods=["GET"])
 def scrape():

@@ -102,7 +102,7 @@ function App() {
     };
   };
 
-  // Function to handle PDF file upload remains unchanged
+  // Function to handle PDF file upload (unchanged)
   const handlePdfUpload = (patternId) => {
     if (!pdfFile) {
       alert("Please select a file first.");
@@ -187,19 +187,15 @@ function App() {
       .catch((err) => console.error(err));
   };
 
-  // Function to handle submission of manual add with image file upload
+  // Function to handle submission of manual add with image file upload (unchanged)
   const handleManualAddSubmit = () => {
-    // Create FormData to include the image file
     const formData = new FormData();
-    // Append all fields from manualPattern
     for (const key in manualPattern) {
       formData.append(key, manualPattern[key]);
     }
-    // Append the image file if one is selected
     if (manualImageFile) {
       formData.append("image", manualImageFile);
     }
-    // POST using multipart/form-data
     fetch(`${API_BASE_URL}/patterns`, {
       method: "POST",
       body: formData,
@@ -207,7 +203,6 @@ function App() {
       .then((res) => res.json())
       .then((addedPattern) => {
         setPatterns((prev) => [...prev, addedPattern]);
-        // Clear manualPattern state and image file
         setManualPattern({
           brand: "",
           pattern_number: "",
@@ -275,6 +270,31 @@ function App() {
         }
       })
       .catch((err) => console.error("Error deleting pattern:", err));
+  };
+
+  // New: Function to delete a PDF file with a confirmation dialog.
+  const handleDeletePdf = (pdfId, patternId) => {
+    if (!window.confirm("Are you sure you want to delete this PDF?")) return;
+    fetch(`${API_BASE_URL}/pattern_pdfs/${pdfId}`, { method: "DELETE" })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to delete PDF");
+        // Update the pattern's pdf_files list in state
+        setPatterns((prev) =>
+          prev.map((pattern) => {
+            if (pattern.id === patternId) {
+              return {
+                ...pattern,
+                pdf_files: pattern.pdf_files.filter((pdf) => pdf.id !== pdfId)
+              };
+            }
+            return pattern;
+          })
+        );
+      })
+      .catch((err) => {
+        console.error("Error deleting PDF:", err);
+        alert("Failed to delete PDF.");
+      });
   };
 
   const handleFilterChange = (e) => {
@@ -356,18 +376,13 @@ function App() {
                   border: "1px solid black",
                   padding: "10px",
                   margin: "10px",
-                  cursor: "pointer",
+                  cursor: "pointer"
                 }}
                 onClick={() => togglePatternExpand(pattern.id)}
               >
                 {/* Condensed View */}
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <img
-                    src={src}
-                    alt={pattern.title}
-                    width="100"
-                    style={{ marginRight: "10px" }}
-                  />
+                  <img src={src} alt={pattern.title} width="100" style={{ marginRight: "10px" }} />
                   <h3>
                     {pattern.brand} {pattern.pattern_number} - {pattern.title}
                   </h3>
@@ -376,11 +391,7 @@ function App() {
                   <div>
                     {editingPatternId === pattern.id ? (
                       <div onClick={(e) => e.stopPropagation()}>
-                        <select
-                          name="brand"
-                          value={editedPattern.brand}
-                          onChange={handleEditChange}
-                        >
+                        <select name="brand" value={editedPattern.brand} onChange={handleEditChange}>
                           {BRANDS.map((brand) => (
                             <option key={brand} value={brand}>
                               {brand}
@@ -392,19 +403,11 @@ function App() {
                           .map((key) => (
                             <div key={key}>
                               <label>{key}:</label>
-                              <input
-                                name={key}
-                                value={editedPattern[key] || ""}
-                                onChange={handleEditChange}
-                              />
+                              <input name={key} value={editedPattern[key] || ""} onChange={handleEditChange} />
                             </div>
                           ))}
-                        <button onClick={(e) => handleUpdate(pattern.id, e)}>
-                          Save
-                        </button>
-                        <button onClick={() => setEditingPatternId(null)}>
-                          Cancel
-                        </button>
+                        <button onClick={(e) => handleUpdate(pattern.id, e)}>Save</button>
+                        <button onClick={() => setEditingPatternId(null)}>Cancel</button>
                       </div>
                     ) : (
                       <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
@@ -428,12 +431,7 @@ function App() {
                                   >
                                     {formatLabel(key)}:
                                   </dt>
-                                  <dd
-                                    style={{
-                                      display: "inline-block",
-                                      marginLeft: "10px"
-                                    }}
-                                  >
+                                  <dd style={{ display: "inline-block", marginLeft: "10px" }}>
                                     {pattern[key]}
                                   </dd>
                                 </div>
@@ -448,15 +446,21 @@ function App() {
                     <ul>
                       {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
                         pattern.pdf_files.map((pdf) => (
-                          <li key={pdf.id}>
-                            <a
-                              href={pdf.pdf_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
+                          <li key={pdf.id} style={{ marginBottom: "5px" }}>
+                            <a href={pdf.pdf_url} target="_blank" rel="noopener noreferrer">
                               {pdf.category} (Order: {pdf.file_order || "N/A"})
                             </a>
                             {pdf.downloaded && <span> ✅ Downloaded</span>}
+                            {/* Delete PDF button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePdf(pdf.id, pattern.id);
+                              }}
+                              style={{ marginLeft: "10px" }}
+                            >
+                              Delete PDF
+                            </button>
                           </li>
                         ))
                       ) : (
@@ -516,7 +520,7 @@ function App() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
+            zIndex: 1000
           }}
         >
           <div
@@ -528,7 +532,7 @@ function App() {
               width: "90%",
               maxWidth: "500px",
               maxHeight: "90%",
-              overflowY: "auto",
+              overflowY: "auto"
             }}
           >
             <h2>Manual Add Pattern</h2>
@@ -546,7 +550,7 @@ function App() {
                   backgroundColor: "#fff",
                   color: "#000",
                   padding: "5px",
-                  marginTop: "5px",
+                  marginTop: "5px"
                 }}
               />
             </div>
@@ -563,7 +567,7 @@ function App() {
                     onChange={(e) =>
                       setManualPattern({
                         ...manualPattern,
-                        [e.target.name]: e.target.value,
+                        [e.target.name]: e.target.value
                       })
                     }
                     style={{
@@ -571,7 +575,7 @@ function App() {
                       backgroundColor: "#fff",
                       color: "#000",
                       padding: "5px",
-                      marginTop: "5px",
+                      marginTop: "5px"
                     }}
                   />
                 </div>
@@ -588,15 +592,12 @@ function App() {
                   backgroundColor: "#fff",
                   color: "#000",
                   padding: "5px",
-                  marginTop: "5px",
+                  marginTop: "5px"
                 }}
               />
             </div>
             <div style={{ marginTop: "20px", textAlign: "right" }}>
-              <button
-                onClick={() => setShowManualAdd(false)}
-                style={{ marginRight: "10px" }}
-              >
+              <button onClick={() => setShowManualAdd(false)} style={{ marginRight: "10px" }}>
                 Cancel
               </button>
               <button onClick={handleManualAddSubmit}>Save</button>
