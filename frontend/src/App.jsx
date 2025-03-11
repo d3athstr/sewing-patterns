@@ -1,6 +1,22 @@
 import { useState, useEffect } from "react";
 import PDFList from "./PDFList";
 
+// Helper: Converts URLs in a text string into clickable links.
+const linkify = (text) => {
+  // Regular expression to detect URLs
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.split(urlRegex).map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={index} href={part} target="_blank" rel="noopener noreferrer">
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 function App() {
   const BRANDS = [
     "Butterick",
@@ -230,10 +246,13 @@ function App() {
       .catch((err) => console.error("Error adding manual pattern:", err));
   };
 
+  // Updated: Remove non-editable properties before editing
   const handleEdit = (pattern, e) => {
     if (e) e.stopPropagation();
+    // Exclude properties that should not be edited
+    const { pdf_files, downloaded, image_url, ...editablePattern } = pattern;
     setEditingPatternId(pattern.id);
-    setEditedPattern({ ...pattern });
+    setEditedPattern(editablePattern);
     setExpandedPatternId(pattern.id);
   };
 
@@ -403,7 +422,11 @@ function App() {
                           .map((key) => (
                             <div key={key}>
                               <label>{key}:</label>
-                              <input name={key} value={editedPattern[key] || ""} onChange={handleEditChange} />
+                              <input
+                                name={key}
+                                value={editedPattern[key] || ""}
+                                onChange={handleEditChange}
+                              />
                             </div>
                           ))}
                         <button onClick={(e) => handleUpdate(pattern.id, e)}>Save</button>
@@ -432,7 +455,9 @@ function App() {
                                     {formatLabel(key)}:
                                   </dt>
                                   <dd style={{ display: "inline-block", marginLeft: "10px" }}>
-                                    {pattern[key]}
+                                    {typeof pattern[key] === "string"
+                                      ? linkify(pattern[key])
+                                      : pattern[key]}
                                   </dd>
                                 </div>
                               ))}
