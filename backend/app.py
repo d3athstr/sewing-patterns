@@ -70,50 +70,86 @@ def get_patterns():
     return jsonify([p.to_dict() for p in patterns])
 
 # Add a new pattern, including PDFs if provided
+import traceback
+
+import traceback
+
+import traceback
+
 @app.route('/patterns', methods=['POST'])
 def add_pattern():
-    # If the request is multipart/form-data, process form and files
-    if request.content_type.startswith('multipart/form-data'):
-        data = request.form.to_dict()
-        valid_keys = {"brand", "pattern_number", "title", "description", "difficulty",
-                      "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
-                      "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
-                      "yardage", "notions", "notes"}
-        filtered_data = {key: data[key] for key in valid_keys if key in data}
+    try:
+        # Use multipart/form-data branch if applicable
+        if request.content_type.startswith('multipart/form-data'):
+            data = request.form.to_dict()
+            print("Received form data:", data)
+            
+            # Define allowed keys
+            valid_keys = {
+                "brand", "pattern_number", "title", "description", "difficulty",
+                "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
+                "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
+                "yardage", "notions", "notes"
+            }
+            # Filter out keys with empty values
+            filtered_data = {key: data[key] for key in valid_keys if key in data and data[key].strip() != ""}
+            print("Filtered data before conversion:", filtered_data)
+            
+            # Convert numeric fields if they exist
+            if "inventory_qty" in filtered_data:
+                try:
+                    filtered_data["inventory_qty"] = int(filtered_data["inventory_qty"])
+                except ValueError:
+                    print("Conversion error for inventory_qty, removing key.")
+                    filtered_data.pop("inventory_qty", None)
+            
+            print("Filtered data after conversion:", filtered_data)
+            
+            # Process uploaded image file
+            image_file = request.files.get('image')
+            if image_file:
+                image_content = image_file.read()
+                print("Received image file of size:", len(image_content))
+                filtered_data["image_data"] = image_content
+        else:
+            # If not multipart, assume JSON
+            data = request.json
+            print("Received JSON data:", data)
+            valid_keys = {
+                "brand", "pattern_number", "title", "description", "image", "image_data", "difficulty",
+                "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
+                "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
+                "yardage", "notions", "notes"
+            }
+            filtered_data = {key: data[key] for key in valid_keys if key in data and data[key] != ""}
         
-        # Check for an uploaded image file
-        image_file = request.files.get('image')
-        if image_file:
-            filtered_data["image_data"] = image_file.read()
+        # Validate required fields
+        if not filtered_data.get("brand") or not filtered_data.get("pattern_number"):
+            return jsonify({"error": "Brand and Pattern Number are required"}), 400
+        
+        # Create new Pattern
+        new_pattern = Pattern(**filtered_data)
+        db.session.add(new_pattern)
+        db.session.commit()
+        
+        # Handle PDFs if any (not the focus here)
+        if "pdfs" in data:
+            for pdf in data["pdfs"]:
+                new_pdf = PatternPDF(
+                    pattern_id=new_pattern.id,
+                    category=pdf.get("category"),
+                    file_order=pdf.get("file_order"),
+                    pdf_url=pdf.get("pdf_url")
+                )
+                db.session.add(new_pdf)
+        db.session.commit()
+        return jsonify(new_pattern.to_dict()), 201
 
-    else:
-        # Fallback to JSON input
-        data = request.json
-        valid_keys = {"brand", "pattern_number", "title", "description", "image", "image_data", "difficulty",
-                      "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
-                      "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
-                      "yardage", "notions", "notes"}
-        filtered_data = {key: data[key] for key in valid_keys if key in data}
+    except Exception as e:
+        print("Error in /patterns endpoint:")
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
-    if not filtered_data.get("brand") or not filtered_data.get("pattern_number"):
-        return jsonify({"error": "Brand and Pattern Number are required"}), 400
-
-    new_pattern = Pattern(**filtered_data)
-    db.session.add(new_pattern)
-    db.session.commit()
-
-    # Handle PDF uploads if included (existing code)
-    if "pdfs" in data:
-        for pdf in data["pdfs"]:
-            new_pdf = PatternPDF(
-                pattern_id=new_pattern.id,
-                category=pdf.get("category"),
-                file_order=pdf.get("file_order"),
-                pdf_url=pdf.get("pdf_url")
-            )
-            db.session.add(new_pdf)
-    db.session.commit()
-    return jsonify(new_pattern.to_dict()), 201
 
 # Add a PDF to an existing pattern
 @app.route('/patterns/<int:pattern_id>/pdfs', methods=['POST'])

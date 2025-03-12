@@ -205,6 +205,12 @@ function App() {
 
   // Function to handle submission of manual add with image file upload (unchanged)
   const handleManualAddSubmit = () => {
+    // Basic validation: ensure required fields are present.
+    if (!manualPattern.brand || !manualPattern.pattern_number) {
+      alert("Brand and Pattern Number are required.");
+      return;
+    }
+    // Create FormData to include the image file
     const formData = new FormData();
     for (const key in manualPattern) {
       formData.append(key, manualPattern[key]);
@@ -216,7 +222,12 @@ function App() {
       method: "POST",
       body: formData,
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Server error: ${res.statusText}`);
+        }
+        return res.json();
+      })
       .then((addedPattern) => {
         setPatterns((prev) => [...prev, addedPattern]);
         setManualPattern({
@@ -243,7 +254,10 @@ function App() {
         setManualImageFile(null);
         setShowManualAdd(false);
       })
-      .catch((err) => console.error("Error adding manual pattern:", err));
+      .catch((err) => {
+        console.error("Error adding manual pattern:", err);
+        alert("Failed to add pattern: " + err.message);
+      });
   };
 
   // Updated: Remove non-editable properties before editing
