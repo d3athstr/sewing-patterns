@@ -559,7 +559,7 @@ function App() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000
+            zIndex: 1000,
           }}
         >
           <div
@@ -571,13 +571,14 @@ function App() {
               width: "90%",
               maxWidth: "500px",
               maxHeight: "90%",
-              overflowY: "auto"
+              overflowY: "auto",
             }}
           >
             <h2>Manual Add Pattern</h2>
-            {/* Manual Add Form */}
             <div>
-              <label>Brand:</label>
+              <label>
+                Brand <span style={{ color: "red" }}>*</span>:
+              </label>
               <input
                 name="brand"
                 value={manualPattern.brand}
@@ -589,16 +590,60 @@ function App() {
                   backgroundColor: "#fff",
                   color: "#000",
                   padding: "5px",
-                  marginTop: "5px"
+                  marginTop: "5px",
+                }}
+              />
+            </div>
+            <div style={{ marginTop: "10px" }}>
+              <label>
+                Pattern Number <span style={{ color: "red" }}>*</span>:
+              </label>
+              <input
+                name="pattern_number"
+                value={manualPattern.pattern_number}
+                onChange={(e) =>
+                  setManualPattern({
+                    ...manualPattern,
+                    pattern_number: e.target.value,
+                  })
+                }
+                style={{
+                  width: "100%",
+                  backgroundColor: "#fff",
+                  color: "#000",
+                  padding: "5px",
+                  marginTop: "5px",
+                }}
+              />
+            </div>
+            <div style={{ marginTop: "10px" }}>
+              <label>
+                Title <span style={{ color: "red" }}>*</span>:
+              </label>
+              <input
+                name="title"
+                value={manualPattern.title}
+                onChange={(e) =>
+                  setManualPattern({
+                    ...manualPattern,
+                    title: e.target.value,
+                  })
+                }
+                style={{
+                  width: "100%",
+                  backgroundColor: "#fff",
+                  color: "#000",
+                  padding: "5px",
+                  marginTop: "5px",
                 }}
               />
             </div>
             {Object.keys(manualPattern)
-              .filter((key) => key !== "brand")
+              .filter((key) => !["brand", "pattern_number", "title"].includes(key))
               .map((key) => (
                 <div key={key} style={{ marginTop: "10px" }}>
                   <label style={{ textTransform: "capitalize" }}>
-                    {formatLabel(key)}:
+                    {key.replace(/_/g, " ")}:
                   </label>
                   <input
                     name={key}
@@ -606,7 +651,7 @@ function App() {
                     onChange={(e) =>
                       setManualPattern({
                         ...manualPattern,
-                        [e.target.name]: e.target.value
+                        [e.target.name]: e.target.value,
                       })
                     }
                     style={{
@@ -614,14 +659,16 @@ function App() {
                       backgroundColor: "#fff",
                       color: "#000",
                       padding: "5px",
-                      marginTop: "5px"
+                      marginTop: "5px",
                     }}
                   />
                 </div>
               ))}
             {/* Image file upload field */}
             <div style={{ marginTop: "10px" }}>
-              <label>Upload Image:</label>
+              <label>
+                Upload Image <span style={{ color: "red" }}>*</span>:
+              </label>
               <input
                 type="file"
                 accept="image/*"
@@ -631,12 +678,20 @@ function App() {
                   backgroundColor: "#fff",
                   color: "#000",
                   padding: "5px",
-                  marginTop: "5px"
+                  marginTop: "5px",
                 }}
               />
             </div>
+            <div style={{ marginTop: "10px", fontSize: "0.9em", color: "#ccc" }}>
+              <p>
+                Fields marked with <span style={{ color: "red" }}>*</span> are required.
+              </p>
+            </div>
             <div style={{ marginTop: "20px", textAlign: "right" }}>
-              <button onClick={() => setShowManualAdd(false)} style={{ marginRight: "10px" }}>
+              <button
+                onClick={() => setShowManualAdd(false)}
+                style={{ marginRight: "10px" }}
+              >
                 Cancel
               </button>
               <button onClick={handleManualAddSubmit}>Save</button>
@@ -644,6 +699,7 @@ function App() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
