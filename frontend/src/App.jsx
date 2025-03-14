@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PDFList from "./PDFList";
 
 // Helper: Converts URLs in a text string into clickable links.
@@ -103,12 +103,51 @@ function App() {
   const [pdfCategory, setPdfCategory] = useState("Instructions");
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
+  // New state for lazy loading: how many patterns to show
+  const [visibleCount, setVisibleCount] = useState(30);
+  const loadMoreRef = useRef(null);
+  // Apply filters and sorting
+  const filteredPatterns = patterns
+    .filter((pattern) => {
+      return Object.entries(filters).every(([key, value]) =>
+        value ? String(pattern[key]).toLowerCase().includes(value) : true
+      );
+    })
+    .sort((a, b) => {
+      const extractNumber = (patternNumber) => {
+        const numericPart = patternNumber.replace(/[^\d]/g, "");
+        return numericPart ? parseInt(numericPart, 10) : Infinity;
+      };
+      return extractNumber(a.pattern_number) - extractNumber(b.pattern_number);
+    });
+
   useEffect(() => {
     fetch(`${API_BASE_URL}/patterns`)
       .then((res) => res.json())
       .then((data) => setPatterns(data))
       .catch((err) => console.error("Error fetching data:", err));
   }, []);
+
+  // Set up the IntersectionObserver for lazy loading
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // When the sentinel element is in view, increase the visible count
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisibleCount((prev) => prev + 30);
+          }
+        });
+      },
+      { rootMargin: "100px" }
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [filteredPatterns.length]);
 
   // Helper: returns image info from the backend
   const getImageInfo = (pattern) => {
@@ -338,19 +377,6 @@ function App() {
     setExpandedPatternId(expandedPatternId === id ? null : id);
   };
 
-  const filteredPatterns = patterns
-    .filter((pattern) => {
-      return Object.entries(filters).every(([key, value]) =>
-        value ? String(pattern[key]).toLowerCase().includes(value) : true
-      );
-    })
-    .sort((a, b) => {
-      const extractNumber = (patternNumber) => {
-        const numericPart = patternNumber.replace(/[^\d]/g, "");
-        return numericPart ? parseInt(numericPart, 10) : Infinity;
-      };
-      return extractNumber(a.pattern_number) - extractNumber(b.pattern_number);
-    });
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
@@ -395,155 +421,159 @@ function App() {
         Manual Add
       </button>
 
-      {/* List of Patterns */}
+      {/* List of Patterns with Lazy Loading */}
       {filteredPatterns.length === 0 ? (
         <p>Loading...</p>
       ) : (
-        <ul style={{ listStyleType: "none", padding: 0 }}>
-          {filteredPatterns.map((pattern) => {
-            const { src, downloaded } = getImageInfo(pattern);
-            return (
-              <li
-                key={pattern.id}
-                style={{
-                  border: "1px solid black",
-                  padding: "10px",
-                  margin: "10px",
-                  cursor: "pointer"
-                }}
-                onClick={() => togglePatternExpand(pattern.id)}
-              >
-                {/* Condensed View */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <img src={src} alt={pattern.title} width="100" style={{ marginRight: "10px" }} />
-                  <h3>
-                    {pattern.brand} {pattern.pattern_number} - {pattern.title}
-                  </h3>
-                </div>
-                {expandedPatternId === pattern.id && (
-                  <div>
-                    {editingPatternId === pattern.id ? (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <select name="brand" value={editedPattern.brand} onChange={handleEditChange}>
-                          {BRANDS.map((brand) => (
-                            <option key={brand} value={brand}>
-                              {brand}
-                            </option>
-                          ))}
-                        </select>
-                        {Object.keys(newPattern)
-                          .filter((key) => key !== "brand")
-                          .map((key) => (
-                            <div key={key}>
-                              <label>{key}:</label>
-                              <input
-                                name={key}
-                                value={editedPattern[key] || ""}
-                                onChange={handleEditChange}
-                              />
-                            </div>
-                          ))}
-                        <button onClick={(e) => handleUpdate(pattern.id, e)}>Save</button>
-                        <button onClick={() => setEditingPatternId(null)}>Cancel</button>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
-                        {/* Enlarged image on the left */}
-                        <div>
-                          <img src={src} alt={pattern.title} width="400" />
-                        </div>
-                        {/* Details on the right */}
-                        <div>
-                          <dl style={{ lineHeight: "1.6" }}>
-                            {Object.keys(pattern)
-                              .filter((key) => !["id", "image_url", "pdf_files", "downloaded"].includes(key))
-                              .map((key) => (
-                                <div key={key} style={{ marginBottom: "5px" }}>
-                                  <dt
-                                    style={{
-                                      fontWeight: "bold",
-                                      display: "inline-block",
-                                      width: "150px"
-                                    }}
-                                  >
-                                    {formatLabel(key)}:
-                                  </dt>
-                                  <dd style={{ display: "inline-block", marginLeft: "10px" }}>
-                                    {typeof pattern[key] === "string"
-                                      ? linkify(pattern[key])
-                                      : pattern[key]}
-                                  </dd>
-                                </div>
-                              ))}
-                          </dl>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PDF Files and controls */}
-                    <h4>PDF Files:</h4>
-                    <ul>
-                      {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
-                        pattern.pdf_files.map((pdf) => (
-                          <li key={pdf.id} style={{ marginBottom: "5px" }}>
-                            <a href={pdf.pdf_url} target="_blank" rel="noopener noreferrer">
-                              {pdf.category} (Order: {pdf.file_order || "N/A"})
-                            </a>
-                            {pdf.downloaded && <span> ✅ Downloaded</span>}
-                            {/* Delete PDF button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeletePdf(pdf.id, pattern.id);
-                              }}
-                              style={{ marginLeft: "10px" }}
-                            >
-                              Delete PDF
-                            </button>
-                          </li>
-                        ))
-                      ) : (
-                        <p>No PDFs attached.</p>
-                      )}
-                    </ul>
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
-                    >
-                      <select
-                        value={pdfCategory}
-                        onChange={(e) => setPdfCategory(e.target.value)}
-                        style={{ marginRight: "10px" }}
-                      >
-                        <option value="Instructions">Instructions</option>
-                        <option value="A4">A4</option>
-                        <option value="A0">A0</option>
-                        <option value="Letter">Letter</option>
-                        <option value="Legal">Legal</option>
-                      </select>
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={(e) => setPdfFile(e.target.files[0])}
-                      />
-                      <button
-                        onClick={() => handlePdfUpload(pattern.id)}
-                        disabled={uploadingPdf || !pdfFile}
-                        style={{ marginLeft: "10px" }}
-                      >
-                        {uploadingPdf ? "Uploading..." : "Upload PDF"}
-                      </button>
-                    </div>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
-                      <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
-                    </div>
+        <>
+          <ul style={{ listStyleType: "none", padding: 0 }}>
+            {filteredPatterns.slice(0, visibleCount).map((pattern) => {
+              const { src, downloaded } = getImageInfo(pattern);
+              return (
+                <li
+                  key={pattern.id}
+                  style={{
+                    border: "1px solid black",
+                    padding: "10px",
+                    margin: "10px",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => togglePatternExpand(pattern.id)}
+                >
+                  {/* Condensed View */}
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <img src={src} alt={pattern.title} width="100" style={{ marginRight: "10px" }} />
+                    <h3>
+                      {pattern.brand} {pattern.pattern_number} - {pattern.title}
+                    </h3>
                   </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                  {expandedPatternId === pattern.id && (
+                    <div>
+                      {editingPatternId === pattern.id ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <select name="brand" value={editedPattern.brand} onChange={handleEditChange}>
+                            {BRANDS.map((brand) => (
+                              <option key={brand} value={brand}>
+                                {brand}
+                              </option>
+                            ))}
+                          </select>
+                          {Object.keys(newPattern)
+                            .filter((key) => key !== "brand")
+                            .map((key) => (
+                              <div key={key}>
+                                <label>{key}:</label>
+                                <input
+                                  name={key}
+                                  value={editedPattern[key] || ""}
+                                  onChange={handleEditChange}
+                                />
+                              </div>
+                            ))}
+                          <button onClick={(e) => handleUpdate(pattern.id, e)}>Save</button>
+                          <button onClick={() => setEditingPatternId(null)}>Cancel</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
+                          {/* Enlarged image on the left */}
+                          <div>
+                            <img src={src} alt={pattern.title} width="400" />
+                          </div>
+                          {/* Details on the right */}
+                          <div>
+                            <dl style={{ lineHeight: "1.6" }}>
+                              {Object.keys(pattern)
+                                .filter((key) => !["id", "image_url", "pdf_files", "downloaded"].includes(key))
+                                .map((key) => (
+                                  <div key={key} style={{ marginBottom: "5px" }}>
+                                    <dt
+                                      style={{
+                                        fontWeight: "bold",
+                                        display: "inline-block",
+                                        width: "150px"
+                                      }}
+                                    >
+                                      {formatLabel(key)}:
+                                    </dt>
+                                    <dd style={{ display: "inline-block", marginLeft: "10px" }}>
+                                      {typeof pattern[key] === "string"
+                                        ? linkify(pattern[key])
+                                        : pattern[key]}
+                                    </dd>
+                                  </div>
+                                ))}
+                            </dl>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PDF Files and controls */}
+                      <h4>PDF Files:</h4>
+                      <ul>
+                        {pattern.pdf_files && pattern.pdf_files.length > 0 ? (
+                          pattern.pdf_files.map((pdf) => (
+                            <li key={pdf.id} style={{ marginBottom: "5px" }}>
+                              <a href={pdf.pdf_url} target="_blank" rel="noopener noreferrer">
+                                {pdf.category} (Order: {pdf.file_order || "N/A"})
+                              </a>
+                              {pdf.downloaded && <span> ✅ Downloaded</span>}
+                              {/* Delete PDF button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePdf(pdf.id, pattern.id);
+                                }}
+                                style={{ marginLeft: "10px" }}
+                              >
+                                Delete PDF
+                              </button>
+                            </li>
+                          ))
+                        ) : (
+                          <p>No PDFs attached.</p>
+                        )}
+                      </ul>
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ display: "flex", alignItems: "center", marginTop: "10px" }}
+                      >
+                        <select
+                          value={pdfCategory}
+                          onChange={(e) => setPdfCategory(e.target.value)}
+                          style={{ marginRight: "10px" }}
+                        >
+                          <option value="Instructions">Instructions</option>
+                          <option value="A4">A4</option>
+                          <option value="A0">A0</option>
+                          <option value="Letter">Letter</option>
+                          <option value="Legal">Legal</option>
+                        </select>
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={(e) => setPdfFile(e.target.files[0])}
+                        />
+                        <button
+                          onClick={() => handlePdfUpload(pattern.id)}
+                          disabled={uploadingPdf || !pdfFile}
+                          style={{ marginLeft: "10px" }}
+                        >
+                          {uploadingPdf ? "Uploading..." : "Upload PDF"}
+                        </button>
+                      </div>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <button onClick={(e) => handleEdit(pattern, e)}>Edit</button>
+                        <button onClick={(e) => handleDelete(pattern.id, e)}>Delete</button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {/* Sentinel element for lazy loading */}
+          <div ref={loadMoreRef} style={{ height: "1px" }}></div>
+        </>
       )}
 
       {/* Manual Add Modal */}
@@ -699,7 +729,6 @@ function App() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
