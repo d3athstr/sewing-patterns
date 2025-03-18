@@ -117,19 +117,6 @@ def add_pattern():
         print("Error in /patterns endpoint:", e)
         return jsonify({"error": str(e)}), 500
 
-    # Handle PDF uploads if included (existing code)
-    if "pdfs" in data:
-        for pdf in data["pdfs"]:
-            new_pdf = PatternPDF(
-                pattern_id=new_pattern.id,
-                category=pdf.get("category"),
-                file_order=pdf.get("file_order"),
-                pdf_url=pdf.get("pdf_url")
-            )
-            db.session.add(new_pdf)
-    db.session.commit()
-    return jsonify(new_pattern.to_dict()), 201
-
 # Add a PDF to an existing pattern
 @app.route('/patterns/<int:pattern_id>/pdfs', methods=['POST'])
 def add_pdf_to_pattern(pattern_id):
