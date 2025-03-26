@@ -1,3 +1,4 @@
+import "./lcars.css";
 import { useState, useEffect, useRef } from "react";
 import PDFList from "./PDFList";
 
@@ -379,7 +380,8 @@ function App() {
 
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+    <div className="lcars-container">
+      <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
       <h1>Sewing Patterns</h1>
 
       {/* Search Fields */}
@@ -432,20 +434,19 @@ function App() {
               return (
                 <li
                   key={pattern.id}
-                  style={{
-                    border: "1px solid black",
-                    padding: "10px",
-                    margin: "10px",
-                    cursor: "pointer"
-                  }}
+                  className="pattern-card"
                   onClick={() => togglePatternExpand(pattern.id)}
                 >
-                  {/* Condensed View */}
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <img src={src} alt={pattern.title} width="100" style={{ marginRight: "10px" }} />
-                    <h3>
-                      {pattern.brand} {pattern.pattern_number} - {pattern.title}
-                    </h3>
+                  <img
+                    src={src}
+                    alt={pattern.title}
+                    style={{ width: expandedPatternId === pattern.id ? "400px" : "100px", transition: "width 0.3s ease" }}
+                  />
+                  <div>
+                    <div className="pattern-title">
+                      {pattern.brand} {pattern.pattern_number}
+                    </div>
+                    <div className="pattern-meta">{pattern.title}</div>
                   </div>
                   {expandedPatternId === pattern.id && (
                     <div>
@@ -729,6 +730,7 @@ function App() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
