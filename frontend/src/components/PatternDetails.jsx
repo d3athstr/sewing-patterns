@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from './auth';
+import { useAuth } from '../auth.jsx';
 
 // Component for displaying pattern details when expanded
 function PatternDetails({ pattern, onEdit, onDelete, pdfCategory, setPdfCategory, pdfFile, setPdfFile, uploadingPdf, handlePdfUpload, formatLabel, editingPatternId, editedPattern, handleEditChange, handleEditSubmit, setEditingPatternId }) {
