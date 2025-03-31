@@ -5,3 +5,7 @@ psycopg2-binary
 requests
 flask-migrate
 beautifulsoup4
+flask-jwt-extended
+marshmallow
+python-dotenv
+Werkzeug
