@@ -2,7 +2,7 @@ import "./lcars.css";
 import { useState, useEffect, useRef } from "react";
 import PDFList from "./PDFList";
 import { AuthProvider, useAuth } from './auth.jsx';
-import LoginForm from './LoginForm';
+import LoginForm from './LoginForm.jsx';
 import FilterPanel from './components/FilterPanel';
 import AddPatternPanel from './components/AddPatternPanel';
 import ManualAddForm from './components/ManualAddForm';
@@ -41,6 +41,8 @@ function AppContent() {
   };
 
   const [patterns, setPatterns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [newPattern, setNewPattern] = useState({
     brand: BRANDS[0],
     pattern_number: "",
@@ -121,10 +123,27 @@ function AppContent() {
   // Fetch patterns when authenticated
   useEffect(() => {
     if (isAuthenticated) {
+      setLoading(true);
+      setError(null);
+      
+      console.log("Fetching patterns...");
       authFetch('/api/patterns')
-        .then((res) => res.json())
-        .then((data) => setPatterns(data))
-        .catch((err) => console.error("Error fetching data:", err));
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! Status: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((data) => {
+          console.log("Patterns fetched successfully:", data);
+          setPatterns(data);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("Error fetching patterns:", err);
+          setError("Failed to load patterns. Please try again later.");
+          setLoading(false);
+        });
     }
   }, [isAuthenticated, authFetch]);
 
@@ -412,6 +431,20 @@ function AppContent() {
         </div>
       )}
       
+      {/* Loading and Error States */}
+      {loading && (
+        <div className="lcars-panel loading-panel">
+          <p>Loading patterns...</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="lcars-panel error-panel">
+          <p>Error: {error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      )}
+      
       {/* Add Pattern Panel */}
       <AddPatternPanel 
         BRANDS={BRANDS}
@@ -441,28 +474,39 @@ function AppContent() {
       />
 
       {/* Pattern List */}
-      <PatternList 
-        filteredPatterns={filteredPatterns}
-        visibleCount={visibleCount}
-        loadMoreRef={loadMoreRef}
-        expandedPatternId={expandedPatternId}
-        toggleExpand={toggleExpand}
-        getImageInfo={getImageInfo}
-        handleEdit={handleEdit}
-        handleDelete={handleDelete}
-        pdfCategory={pdfCategory}
-        setPdfCategory={setPdfCategory}
-        pdfFile={pdfFile}
-        setPdfFile={setPdfFile}
-        uploadingPdf={uploadingPdf}
-        handlePdfUpload={handlePdfUpload}
-        formatLabel={formatLabel}
-        editingPatternId={editingPatternId}
-        editedPattern={editedPattern}
-        handleEditChange={handleEditChange}
-        handleEditSubmit={handleEditSubmit}
-        setEditingPatternId={setEditingPatternId}
-      />
+      {!loading && !error && (
+        <>
+          {patterns.length === 0 ? (
+            <div className="lcars-panel">
+              <h2>No Patterns Found</h2>
+              <p>There are no patterns in the database yet. Use the "Add Pattern" panel above to add some patterns.</p>
+            </div>
+          ) : (
+            <PatternList 
+              filteredPatterns={filteredPatterns}
+              visibleCount={visibleCount}
+              loadMoreRef={loadMoreRef}
+              expandedPatternId={expandedPatternId}
+              toggleExpand={toggleExpand}
+              getImageInfo={getImageInfo}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+              pdfCategory={pdfCategory}
+              setPdfCategory={setPdfCategory}
+              pdfFile={pdfFile}
+              setPdfFile={setPdfFile}
+              uploadingPdf={uploadingPdf}
+              handlePdfUpload={handlePdfUpload}
+              formatLabel={formatLabel}
+              editingPatternId={editingPatternId}
+              editedPattern={editedPattern}
+              handleEditChange={handleEditChange}
+              handleEditSubmit={handleEditSubmit}
+              setEditingPatternId={setEditingPatternId}
+            />
+          )}
+        </>
+      )}
 
       {/* PDF List Component */}
       <PDFList />
