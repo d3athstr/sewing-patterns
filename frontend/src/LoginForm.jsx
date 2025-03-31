@@ -13,6 +13,7 @@ function LoginForm() {
     setError('');
     setLoading(true);
 
+
     try {
       console.log(`Attempting login for user: ${username}`);
       
@@ -40,6 +41,9 @@ function LoginForm() {
     } finally {
       setLoading(false);
     }
+    console.log("Login form submitted") ;
+    console.log("API URL:", `${API_BASE_URL}/api/auth/login`);
+    console.log("Credentials:", { username, password: "***" });
   };
 
   return (

@@ -43,6 +43,7 @@ def create_app(config_class=Config):
         if admin_username and admin_password and admin_email:
             logger.info(f"Creating admin user from environment variables: {admin_username}")
             create_admin_user(admin_username, admin_password, admin_email)
+            logger.info("Admin user creation attempt completed")
     
     # User loader callback for JWT
     @jwt.user_lookup_loader
