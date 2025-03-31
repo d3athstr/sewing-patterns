@@ -1,7 +1,7 @@
 import "./lcars.css";
 import { useState, useEffect, useRef } from "react";
 import PDFList from "./PDFList";
-import { AuthProvider, useAuth } from './auth';
+import { AuthProvider, useAuth } from '../auth';
 import LoginForm from './LoginForm';
 import FilterPanel from './components/FilterPanel';
 import AddPatternPanel from './components/AddPatternPanel';
