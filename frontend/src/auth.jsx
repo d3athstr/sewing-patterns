@@ -12,21 +12,29 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Debug: Log initial state
+  console.log("AuthProvider initialized with token:", token ? "exists" : "none");
+
   // Check if user is authenticated on load
   useEffect(() => {
     const checkAuth = async () => {
+      console.log("checkAuth running, token:", token ? "exists" : "none");
+      
       if (token) {
         try {
           console.log("Checking authentication with token:", token.substring(0, 10) + "...");
+          
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           });
           
+          console.log("Auth check response status:", response.status);
+          
           if (response.ok) {
             const userData = await response.json();
-            console.log("User authenticated:", userData);
+            console.log("User authenticated successfully:", userData);
             setUser(userData);
           } else {
             // Token is invalid or expired
@@ -41,7 +49,9 @@ export function AuthProvider({ children }) {
       } else {
         console.log("No token found in localStorage");
       }
+      
       setLoading(false);
+      console.log("Authentication check completed, loading set to false");
     };
 
     checkAuth();
@@ -49,11 +59,12 @@ export function AuthProvider({ children }) {
 
   // Login function
   const login = async (username, password) => {
+    console.log("Login function called for user:", username);
     setLoading(true);
     setError(null);
     
     try {
-      console.log(`Attempting login for user: ${username}`);
+      console.log(`Attempting login request to ${API_BASE_URL}/api/auth/login`);
       
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
@@ -63,14 +74,16 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ username, password })
       });
       
+      console.log("Login response status:", response.status);
+      
       const data = await response.json();
-      console.log("Login response:", data);
+      console.log("Login response data:", data);
       
       if (response.ok && data.access_token) {
         console.log("Login successful, storing token");
         localStorage.setItem('token', data.access_token);
         setToken(data.access_token);
-        setUser(data.user);
+        setUser(data.user || { username: username }); // Fallback if user data not provided
         return true;
       } else {
         console.error("Login failed:", data.error || "Unknown error");
@@ -83,6 +96,7 @@ export function AuthProvider({ children }) {
       return false;
     } finally {
       setLoading(false);
+      console.log("Login attempt completed, loading set to false");
     }
   };
 
@@ -106,24 +120,58 @@ export function AuthProvider({ children }) {
       ...getAuthHeader()
     };
     
-    console.log(`Making authenticated request to: ${url}`);
-    return fetch(`${API_BASE_URL}${url}`, {
-      ...options,
-      headers
-    });
+    console.log(`Making authenticated request to: ${API_BASE_URL}${url}`);
+    console.log("Request headers:", headers);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        ...options,
+        headers
+      });
+      
+      console.log(`Response status for ${url}:`, response.status);
+      
+      // If unauthorized, clear token and user
+      if (response.status === 401) {
+        console.log("Received 401 Unauthorized, clearing authentication");
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error(`Error in authFetch for ${url}:`, error);
+      throw error;
+    }
   };
 
+  // Debug: Log when auth state changes
+  useEffect(() => {
+    console.log("Auth state updated - isAuthenticated:", !!token);
+    console.log("User:", user);
+  }, [token, user]);
+
+  const authContextValue = {
+    user,
+    loading,
+    error,
+    login,
+    logout,
+    isAuthenticated: !!token,
+    authFetch,
+    API_BASE_URL
+  };
+  
+  console.log("Rendering AuthProvider with context:", {
+    user: user ? "exists" : "null",
+    loading,
+    error: error || "none",
+    isAuthenticated: !!token
+  });
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      error,
-      login,
-      logout,
-      isAuthenticated: !!token,
-      authFetch,
-      API_BASE_URL
-    }}>
+    <AuthContext.Provider value={authContextValue}>
       {children}
     </AuthContext.Provider>
   );
@@ -133,6 +181,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
+    console.error("useAuth must be used within an AuthProvider");
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

@@ -12,12 +12,13 @@ function LoginForm() {
     e.preventDefault();
     
     console.log(`Attempting login for user: ${username}`);
+    console.log("Before login call - form submission");
     
     // Use the login function from auth context
     const success = await login(username, password);
     
     console.log("Login attempt completed, success:", success);
-    console.log("Credentials used:", { username, password: "***" });
+    console.log("After login call - checking if we get here");
   };
 
   return (
@@ -57,6 +58,7 @@ function LoginForm() {
       <div className="login-info">
         <p>This application requires pre-registered access.</p>
         <p>Please contact your administrator if you need an account.</p>
+        <p>Default admin credentials: username="admin", password="admin_password"</p>
       </div>
     </div>
   );
