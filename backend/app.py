@@ -1,421 +1,218 @@
-"""
-Main application file for the Sewing Patterns API.
-Implements secure API endpoints with authentication and validation.
-"""
-from flask import Flask, request, jsonify, Response, send_file
+from flask import Flask, request, jsonify, Response, url_for
 from flask_cors import CORS
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from marshmallow import ValidationError
-from io import BytesIO
-import os
-
-# Import configuration
-from config import get_config
-
-# Import models and database
-from models import db, Pattern, PatternPDF
-
-# Import authentication
-from auth import auth_bp, init_jwt, User
-
-# Import validation schemas
-from validation import (
-    PatternSchema, PatternPDFSchema, PatternQuerySchema, ScrapeQuerySchema
-)
-
-# Import scraper functionality
+from flask_migrate import Migrate
+from models import Pattern, PatternPDF, db
 from scraper import scrape_pattern
 
-def create_app(config_name=None):
-    """Create and configure the Flask application."""
-    app = Flask(__name__)
-    
-    # Load configuration
-    config = get_config()
-    app.config.from_object(config)
-    
-    # Initialize extensions
-    CORS(app)
-    db.init_app(app)
-    jwt = init_jwt(app)
-    
-    # Register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    
-    # Global error handler
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        """Global exception handler."""
-        app.logger.error(f"Unhandled exception: {str(e)}")
-        return jsonify({
-            "error": "Internal server error",
-            "message": str(e) if app.debug else "An unexpected error occurred"
-        }), 500
-    
-    @app.errorhandler(404)
-    def not_found(e):
-        """Handle 404 errors."""
-        return jsonify({"error": "Resource not found"}), 404
-    
-    @app.errorhandler(ValidationError)
-    def validation_error(e):
-        """Handle validation errors."""
-        return jsonify({"error": "Validation error", "details": e.messages}), 400
-    
-    # Initialize schemas
-    pattern_schema = PatternSchema()
-    pattern_pdf_schema = PatternPDFSchema()
-    pattern_query_schema = PatternQuerySchema()
-    scrape_query_schema = ScrapeQuerySchema()
-    
-    # Pattern routes
-    @app.route('/api/patterns', methods=['GET'])
-    def get_patterns():
-        """Get all patterns with optional filtering."""
-        try:
-            # Validate query parameters
-            query_data = pattern_query_schema.load(request.args)
-            
-            # Build query
-            query = Pattern.query
-            
-            # Apply filters if provided
-            for key, value in query_data.items():
-                if value is not None:
-                    if key == 'cosplay_hackable':
-                        query = query.filter(Pattern.cosplay_hackable == value)
-                    else:
-                        query = query.filter(getattr(Pattern, key).ilike(f'%{value}%'))
-            
-            # Execute query
-            patterns = query.all()
-            
-            return jsonify([p.to_dict() for p in patterns])
-        except ValidationError as e:
-            return jsonify({"error": "Invalid query parameters", "details": e.messages}), 400
-        except Exception as e:
-            app.logger.error(f"Error in get_patterns: {str(e)}")
-            return jsonify({"error": str(e)}), 500
-    
-    @app.route('/api/patterns', methods=['POST'])
-    @jwt_required()
-    def add_pattern():
-        """Add a new pattern."""
-        try:
-            current_user_id = get_jwt_identity()
-            
-            # Handle multipart/form-data (with image upload)
-            if request.content_type.startswith('multipart/form-data'):
-                # Validate form data
-                data = {key: request.form.get(key) for key in request.form}
-                validated_data = pattern_schema.load(data)
-                
-                # Handle image file
-                image_file = request.files.get('image')
-                if image_file:
-                    validated_data["image_data"] = image_file.read()
-            else:
-                # Validate JSON data
-                validated_data = pattern_schema.load(request.json)
-            
-            # Create new pattern
-            new_pattern = Pattern(**validated_data)
-            new_pattern.user_id = current_user_id
-            
-            # Save to database
-            db.session.add(new_pattern)
-            db.session.commit()
-            
-            return jsonify(new_pattern.to_dict()), 201
-        except ValidationError as e:
-            return jsonify({"error": "Validation error", "details": e.messages}), 400
-        except Exception as e:
-            app.logger.error(f"Error in add_pattern: {str(e)}")
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    
-    @app.route('/api/patterns/<int:pattern_id>', methods=['GET'])
-    def get_pattern(pattern_id):
-        """Get a specific pattern by ID."""
-        pattern = Pattern.query.get(pattern_id)
-        if not pattern:
-            return jsonify({"error": "Pattern not found"}), 404
-        
-        return jsonify(pattern.to_dict())
-    
-    @app.route('/api/patterns/<int:pattern_id>', methods=['PUT'])
-    @jwt_required()
-    def update_pattern(pattern_id):
-        """Update an existing pattern."""
-        try:
-            current_user_id = get_jwt_identity()
-            
-            # Find pattern
-            pattern = Pattern.query.get(pattern_id)
-            if not pattern:
-                return jsonify({"error": "Pattern not found"}), 404
-            
-            # Check ownership
-            if pattern.user_id and pattern.user_id != current_user_id:
-                # Check if user is admin
-                user = User.query.get(current_user_id)
-                if not user or not user.is_admin:
-                    return jsonify({"error": "You don't have permission to update this pattern"}), 403
-            
-            # Handle multipart/form-data (with image upload)
-            if request.content_type and request.content_type.startswith('multipart/form-data'):
-                # Validate form data
-                data = {key: request.form.get(key) for key in request.form}
-                validated_data = pattern_schema.load(data, partial=True)
-                
-                # Handle image file
-                image_file = request.files.get('image')
-                if image_file:
-                    validated_data["image_data"] = image_file.read()
-            else:
-                # Validate JSON data
-                validated_data = pattern_schema.load(request.json, partial=True)
-            
-            # Update pattern attributes
-            for key, value in validated_data.items():
-                setattr(pattern, key, value)
-            
-            # Save to database
-            db.session.commit()
-            
-            return jsonify(pattern.to_dict())
-        except ValidationError as e:
-            return jsonify({"error": "Validation error", "details": e.messages}), 400
-        except Exception as e:
-            app.logger.error(f"Error in update_pattern: {str(e)}")
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    
-    @app.route('/api/patterns/<int:pattern_id>', methods=['DELETE'])
-    @jwt_required()
-    def delete_pattern(pattern_id):
-        """Delete a pattern."""
-        try:
-            current_user_id = get_jwt_identity()
-            
-            # Find pattern
-            pattern = Pattern.query.get(pattern_id)
-            if not pattern:
-                return jsonify({"error": "Pattern not found"}), 404
-            
-            # Check ownership
-            if pattern.user_id and pattern.user_id != current_user_id:
-                # Check if user is admin
-                user = User.query.get(current_user_id)
-                if not user or not user.is_admin:
-                    return jsonify({"error": "You don't have permission to delete this pattern"}), 403
-            
-            # Delete pattern (cascade will delete associated PDFs)
-            db.session.delete(pattern)
-            db.session.commit()
-            
-            return jsonify({"message": "Pattern deleted"})
-        except Exception as e:
-            app.logger.error(f"Error in delete_pattern: {str(e)}")
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    
-    @app.route('/api/patterns/<int:pattern_id>/image', methods=['GET'])
-    def get_pattern_image(pattern_id):
-        """Serve binary image data for a pattern."""
-        pattern = Pattern.query.get(pattern_id)
-        if not pattern or not pattern.image_data:
-            return jsonify({"error": "Image not found"}), 404
-        
-        return Response(pattern.image_data, mimetype="image/jpeg")
-    
-    # PDF routes
-    @app.route('/api/pdfs', methods=['GET'])
-    def get_pdfs():
-        """Get all PDF files."""
-        pdfs = PatternPDF.query.all()
-        return jsonify([pdf.to_dict() for pdf in pdfs])
-    
-    @app.route('/api/pdfs/<int:pdf_id>', methods=['GET'])
-    def get_pdf(pdf_id):
-        """Serve binary PDF data."""
-        pdf = PatternPDF.query.get(pdf_id)
-        if not pdf or not pdf.pdf_data:
-            return jsonify({"error": "PDF not found"}), 404
-        
-        return Response(pdf.pdf_data, mimetype="application/pdf")
-    
-    @app.route('/api/patterns/<int:pattern_id>/pdfs', methods=['POST'])
-    @jwt_required()
-    def add_pdf_to_pattern(pattern_id):
-        """Add a PDF to a pattern."""
-        try:
-            current_user_id = get_jwt_identity()
-            
-            # Find pattern
-            pattern = Pattern.query.get(pattern_id)
-            if not pattern:
-                return jsonify({"error": "Pattern not found"}), 404
-            
-            # Check ownership
-            if pattern.user_id and pattern.user_id != current_user_id:
-                # Check if user is admin
-                user = User.query.get(current_user_id)
-                if not user or not user.is_admin:
-                    return jsonify({"error": "You don't have permission to add PDFs to this pattern"}), 403
-            
-            # Handle file upload
-            if 'pdf' in request.files:
-                pdf_file = request.files['pdf']
-                
-                # Validate form data
-                data = {
-                    'pattern_id': pattern_id,
-                    'category': request.form.get('category', 'Instructions'),
-                    'file_order': request.form.get('file_order', type=int)
-                }
-                validated_data = pattern_pdf_schema.load(data)
-                
-                # Create new PDF
-                new_pdf = PatternPDF(**validated_data)
-                new_pdf.pdf_data = pdf_file.read()
-            else:
-                # Validate JSON data
-                data = request.json
-                data['pattern_id'] = pattern_id
-                validated_data = pattern_pdf_schema.load(data)
-                
-                # Create new PDF
-                new_pdf = PatternPDF(**validated_data)
-            
-            # Save to database
-            db.session.add(new_pdf)
-            db.session.commit()
-            
-            return jsonify(new_pdf.to_dict()), 201
-        except ValidationError as e:
-            return jsonify({"error": "Validation error", "details": e.messages}), 400
-        except Exception as e:
-            app.logger.error(f"Error in add_pdf_to_pattern: {str(e)}")
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    
-    @app.route('/api/pdfs/<int:pdf_id>', methods=['DELETE'])
-    @jwt_required()
-    def delete_pdf(pdf_id):
-        """Delete a PDF file."""
-        try:
-            current_user_id = get_jwt_identity()
-            
-            # Find PDF
-            pdf = PatternPDF.query.get(pdf_id)
-            if not pdf:
-                return jsonify({"error": "PDF not found"}), 404
-            
-            # Find associated pattern
-            pattern = Pattern.query.get(pdf.pattern_id)
-            
-            # Check ownership
-            if pattern and pattern.user_id and pattern.user_id != current_user_id:
-                # Check if user is admin
-                user = User.query.get(current_user_id)
-                if not user or not user.is_admin:
-                    return jsonify({"error": "You don't have permission to delete this PDF"}), 403
-            
-            # Delete PDF
-            db.session.delete(pdf)
-            db.session.commit()
-            
-            return jsonify({"message": "PDF deleted"}), 200
-        except Exception as e:
-            app.logger.error(f"Error in delete_pdf: {str(e)}")
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    
-    # Scraper route
-    @app.route('/api/scrape', methods=['GET'])
-    @jwt_required()
-    def scrape():
-        """Scrape and add pattern."""
-        try:
-            # Validate query parameters
-            query_data = scrape_query_schema.load(request.args)
-            
-            brand = query_data['brand']
-            pattern_number = query_data['pattern_number']
-            
-            # Scrape pattern data
-            scraped_data = scrape_pattern(brand, pattern_number)
-            
-            if not isinstance(scraped_data, dict) or "brand" not in scraped_data or "pattern_number" not in scraped_data:
-                return jsonify({"error": "Failed to scrape valid pattern data"}), 500
-            
-            # Check if pattern already exists
-            existing_pattern = Pattern.query.filter_by(
-                brand=brand, 
-                pattern_number=pattern_number
-            ).first()
-            
-            current_user_id = get_jwt_identity()
-            
-            if existing_pattern:
-                # Update existing pattern
-                for key, value in scraped_data.items():
-                    setattr(existing_pattern, key, value)
-                
-                # Increment inventory quantity
-                existing_pattern.inventory_qty = (existing_pattern.inventory_qty or 0) + 1
-                
-                # Save changes
-                db.session.commit()
-                
-                return jsonify({
-                    "message": "Pattern updated", 
-                    "pattern": existing_pattern.to_dict()
-                })
-            
-            # Create new pattern
-            new_pattern = Pattern(**scraped_data)
-            new_pattern.user_id = current_user_id
-            
-            # Save to database
-            db.session.add(new_pattern)
-            db.session.commit()
-            
-            return jsonify({
-                "message": "Pattern added", 
-                "pattern": new_pattern.to_dict()
-            })
-        except ValidationError as e:
-            return jsonify({"error": "Validation error", "details": e.messages}), 400
-        except Exception as e:
-            app.logger.error(f"Error in scrape: {str(e)}")
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 500
-    
-    # Create database tables
-    with app.app_context():
-        db.create_all()
-        
-        # Create admin user if it doesn't exist
-        admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
-        admin_password = os.environ.get('ADMIN_PASSWORD', 'admin_password')
-        admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
-        
-        if not User.query.filter_by(username=admin_username).first():
-            admin = User(
-                username=admin_username,
-                email=admin_email,
-                is_admin=True
-            )
-            admin.set_password(admin_password)
-            db.session.add(admin)
-            db.session.commit()
-            app.logger.info(f"Created admin user: {admin_username}")
-    
-    return app
+app = Flask(__name__)
+CORS(app)
 
-# Run the application
+# Database Configuration
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://user:password@sewing_patterns_db/sewing_patterns"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Initialize the db with the Flask app
+db.init_app(app)
+migrate = Migrate(app, db)
+
+# Serve binary image data
+@app.route("/pattern_image/<int:pattern_id>")
+def get_pattern_image(pattern_id):
+    pattern = Pattern.query.get(pattern_id)
+    if pattern and pattern.image_data:
+        return Response(pattern.image_data, mimetype="image/jpeg")
+    return jsonify({"error": "Image not found"}), 404
+
+# Serve binary PDF data
+@app.route("/pattern_pdf/<int:pdf_id>")
+def get_pattern_pdf(pdf_id):
+    pdf = PatternPDF.query.get(pdf_id)
+    if pdf and pdf.pdf_data:
+        return Response(pdf.pdf_data, mimetype="application/pdf")
+    return jsonify({"error": "PDF not found"}), 404
+
+# Get all PDFs
+@app.route('/pattern_pdfs', methods=['GET'])
+def get_pattern_pdfs():
+    pdfs = PatternPDF.query.all()
+    return jsonify([pdf.to_dict() for pdf in pdfs])
+
+# Upload a PDF file to a pattern
+@app.route('/pattern_pdfs/upload', methods=['POST'])
+def upload_pattern_pdf():
+    pattern_id = request.form.get('pattern_id')
+    category = request.form.get('category')  # e.g., A4, A0, Instructions, etc.
+    file_order = request.form.get('file_order', type=int)
+    pdf_file = request.files.get('pdf')
+
+    if not pattern_id or not category or not pdf_file:
+        return jsonify({"error": "Pattern ID, category, and file are required"}), 400
+
+    pattern = Pattern.query.get(pattern_id)
+    if not pattern:
+        return jsonify({"error": "Pattern not found"}), 404
+
+    new_pdf = PatternPDF(
+        pattern_id=pattern_id,
+        category=category,
+        file_order=file_order,
+        pdf_data=pdf_file.read()
+    )
+
+    db.session.add(new_pdf)
+    db.session.commit()
+    return jsonify(new_pdf.to_dict()), 201
+
+# Get all patterns
+@app.route('/patterns', methods=['GET'])
+def get_patterns():
+    patterns = Pattern.query.all()
+    return jsonify([p.to_dict() for p in patterns])
+
+# Add a new pattern, including PDFs if provided
+@app.route('/patterns', methods=['POST'])
+def add_pattern():
+    try:
+        if request.content_type.startswith('multipart/form-data'):
+            data = request.form.to_dict()
+            print("Form data received:", data)  # Debug log
+            valid_keys = {"brand", "pattern_number", "title", "description", "difficulty",
+                          "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
+                          "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
+                          "yardage", "notions", "notes"}
+            filtered_data = {key: data[key] for key in valid_keys if key in data}
+            
+            image_file = request.files.get('image')
+            if image_file:
+                filtered_data["image_data"] = image_file.read()
+                print("Image data received, size:", len(filtered_data["image_data"]))
+        else:
+            data = request.json
+            print("JSON data received:", data)  # Debug log
+            valid_keys = {"brand", "pattern_number", "title", "description", "image", "image_data", "difficulty",
+                          "size", "sex", "item_type", "format", "inventory_qty", "cut_status",
+                          "cut_size", "cosplay_hackable", "cosplay_notes", "material_recommendations",
+                          "yardage", "notions", "notes"}
+            filtered_data = {key: data[key] for key in valid_keys if key in data}
+
+        if not filtered_data.get("brand") or not filtered_data.get("pattern_number"):
+            return jsonify({"error": "Brand and Pattern Number are required"}), 400
+
+        new_pattern = Pattern(**filtered_data)
+        db.session.add(new_pattern)
+        db.session.commit()
+
+        if "pdfs" in data:
+            for pdf in data["pdfs"]:
+                new_pdf = PatternPDF(
+                    pattern_id=new_pattern.id,
+                    category=pdf.get("category"),
+                    file_order=pdf.get("file_order"),
+                    pdf_url=pdf.get("pdf_url")
+                )
+                db.session.add(new_pdf)
+        db.session.commit()
+        return jsonify(new_pattern.to_dict()), 201
+    except Exception as e:
+        print("Error in /patterns endpoint:", e)
+        return jsonify({"error": str(e)}), 500
+
+# Add a PDF to an existing pattern
+@app.route('/patterns/<int:pattern_id>/pdfs', methods=['POST'])
+def add_pdf_to_pattern(pattern_id):
+    if 'pdf' in request.files:
+        # Handle file upload
+        pdf_file = request.files['pdf']
+        category = request.form.get("category", "Instructions")
+        file_order = request.form.get("file_order", type=int)
+
+        new_pdf = PatternPDF(
+            pattern_id=pattern_id,
+            category=category,
+            file_order=file_order,
+            pdf_data=pdf_file.read()
+        )
+    else:
+        # Handle URL-based PDF attachment
+        data = request.json
+        required_keys = {"category", "pdf_url"}
+        if not all(key in data for key in required_keys):
+            return jsonify({"error": "Category and PDF URL are required"}), 400
+
+        new_pdf = PatternPDF(
+            pattern_id=pattern_id,
+            category=data["category"],
+            file_order=data.get("file_order"),
+            pdf_url=data["pdf_url"]
+        )
+
+    db.session.add(new_pdf)
+    db.session.commit()
+    return jsonify(new_pdf.to_dict()), 201
+
+# Update an existing pattern
+@app.route('/patterns/<int:id>', methods=['PUT'])
+def update_pattern(id):
+    pattern = Pattern.query.get_or_404(id)
+    data = request.json
+
+    if "cosplay_hackable" in data:
+        if isinstance(data["cosplay_hackable"], str):
+            data["cosplay_hackable"] = data["cosplay_hackable"].strip().lower() in ["yes", "true", "1"]
+
+    for key, value in data.items():
+        setattr(pattern, key, value)
+
+    db.session.commit()
+    return jsonify(pattern.to_dict())
+
+# Delete a pattern
+@app.route('/patterns/<int:id>', methods=['DELETE'])
+def delete_pattern(id):
+    pattern = Pattern.query.get(id)
+    if not pattern:
+        return jsonify({"error": "Pattern not found"}), 404
+
+    db.session.delete(pattern)
+    db.session.commit()
+    return jsonify({"message": "Pattern deleted"})
+
+@app.route('/pattern_pdfs/<int:pdf_id>', methods=['DELETE'])
+def delete_pattern_pdf(pdf_id):
+    pdf = PatternPDF.query.get(pdf_id)
+    if not pdf:
+        return jsonify({"error": "PDF not found"}), 404
+    db.session.delete(pdf)
+    db.session.commit()
+    return jsonify({"message": "PDF deleted"}), 200
+
+# Scrape and add pattern
+@app.route("/scrape", methods=["GET"])
+def scrape():
+    brand = request.args.get("brand")
+    pattern_number = request.args.get("pattern_number")
+
+    if not brand or not pattern_number:
+        return jsonify({"error": "Brand and Pattern Number are required"}), 400
+
+    scraped_data = scrape_pattern(brand, pattern_number)
+
+    if not isinstance(scraped_data, dict) or "brand" not in scraped_data or "pattern_number" not in scraped_data:
+        return jsonify({"error": "Failed to scrape valid pattern data"}), 500
+
+    existing_pattern = Pattern.query.filter_by(brand=brand, pattern_number=pattern_number).first()
+
+    if existing_pattern:
+        for key, value in scraped_data.items():
+            setattr(existing_pattern, key, value)
+        existing_pattern.inventory_qty = (existing_pattern.inventory_qty or 0) + 1
+        db.session.commit()
+        return jsonify({"message": "Pattern updated", "pattern": existing_pattern.to_dict()})
+
+    new_pattern = Pattern(**scraped_data)
+    db.session.add(new_pattern)
+    db.session.commit()
+    return jsonify({"message": "Pattern added", "pattern": new_pattern.to_dict()})
+
 if __name__ == '__main__':
-    app = create_app()
-    app.run(debug=True, host="0.0.0.0")
+    app.run(debug=False, host="0.0.0.0")
