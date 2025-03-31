@@ -1,28 +1,35 @@
-services:
-  db:
-    image: postgres:latest
-    container_name: sewing_patterns_db
-    restart: always
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: sewing_patterns
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./backups:/backups
-    ports:
-      - "5432:5432"
+version: '3'
 
+services:
   backend:
     build: ./backend
-    container_name: sewing_patterns_backend
-    restart: always
-    environment:
-      DATABASE_URL: postgresql://user:password@db:5432/sewing_patterns
     ports:
       - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=sewing_patterns
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - FLASK_SECRET_KEY=your-secret-key-here
+      - JWT_SECRET_KEY=your-jwt-secret-key-here
+    volumes:
+      - ./backend:/app
     depends_on:
       - db
 
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=sewing_patterns
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
 volumes:
-  db_data: {}
+  postgres_data:
+
