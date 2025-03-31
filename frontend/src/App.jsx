@@ -3,22 +3,10 @@ import { useState, useEffect, useRef } from "react";
 import PDFList from "./PDFList";
 import { AuthProvider, useAuth } from './auth';
 import LoginForm from './LoginForm';
-
-// Helper: Converts URLs in a text string into clickable links.
-const linkify = (text) => {
-  // Regular expression to detect URLs
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.split(urlRegex).map((part, index) => {
-    if (part.match(urlRegex)) {
-      return (
-        <a key={index} href={part} target="_blank" rel="noopener noreferrer">
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
-};
+import FilterPanel from './components/FilterPanel';
+import AddPatternPanel from './components/AddPatternPanel';
+import ManualAddForm from './components/ManualAddForm';
+import PatternList from './components/PatternList';
 
 // Main App component wrapped with AuthProvider
 function AppWithAuth() {
@@ -42,7 +30,7 @@ function AppContent() {
   ];
   
   // Use auth context instead of hardcoded API URL
-  const { isAuthenticated, user, authFetch, API_BASE_URL } = useAuth();
+  const { isAuthenticated, user, authFetch, API_BASE_URL, logout } = useAuth();
 
   // Helper to format labels: remove underscores and convert to Title Case.
   const formatLabel = (label) => {
@@ -412,7 +400,7 @@ function AppContent() {
     );
   }
 
-  // Rest of the component remains largely the same, just using authFetch instead of fetch
+  // Main authenticated UI
   return (
     <div className="lcars-container">
       <h1>Sewing Patterns Manager</h1>
@@ -420,134 +408,67 @@ function AppContent() {
       {user && (
         <div className="user-info">
           <p>Logged in as: {user.username}</p>
-          <button onClick={() => useAuth().logout()}>Logout</button>
+          <button onClick={logout}>Logout</button>
         </div>
       )}
       
-      {/* Rest of your existing UI components */}
-      {/* ... */}
-      
-      {/* Scrape and Add Form */}
-      <div className="lcars-panel">
-        <h2>Add Pattern</h2>
-        <div className="form-row">
-          <select
-            value={newPattern.brand}
-            onChange={(e) =>
-              setNewPattern({ ...newPattern, brand: e.target.value })
-            }
-          >
-            {BRANDS.map((brand) => (
-              <option key={brand} value={brand}>
-                {brand}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="Pattern Number"
-            value={newPattern.pattern_number}
-            onChange={(e) =>
-              setNewPattern({ ...newPattern, pattern_number: e.target.value })
-            }
-          />
-          <button onClick={handleScrapeAndAdd}>Scrape & Add</button>
-          <button onClick={() => setShowManualAdd(!showManualAdd)}>
-            {showManualAdd ? "Cancel Manual Add" : "Manual Add"}
-          </button>
-        </div>
-      </div>
+      {/* Add Pattern Panel */}
+      <AddPatternPanel 
+        BRANDS={BRANDS}
+        newPattern={newPattern}
+        setNewPattern={setNewPattern}
+        handleScrapeAndAdd={handleScrapeAndAdd}
+        showManualAdd={showManualAdd}
+        setShowManualAdd={setShowManualAdd}
+      />
 
       {/* Manual Add Form */}
       {showManualAdd && (
-        <div className="lcars-panel">
-          <h2>Manual Add</h2>
-          <div className="form-grid">
-            <div>
-              <label>Brand</label>
-              <input
-                type="text"
-                value={manualPattern.brand}
-                onChange={(e) =>
-                  setManualPattern({ ...manualPattern, brand: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label>Pattern Number</label>
-              <input
-                type="text"
-                value={manualPattern.pattern_number}
-                onChange={(e) =>
-                  setManualPattern({
-                    ...manualPattern,
-                    pattern_number: e.target.value
-                  })
-                }
-              />
-            </div>
-            <div>
-              <label>Title</label>
-              <input
-                type="text"
-                value={manualPattern.title}
-                onChange={(e) =>
-                  setManualPattern({ ...manualPattern, title: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label>Description</label>
-              <textarea
-                value={manualPattern.description}
-                onChange={(e) =>
-                  setManualPattern({
-                    ...manualPattern,
-                    description: e.target.value
-                  })
-                }
-              />
-            </div>
-            <div>
-              <label>Image</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setManualImageFile(e.target.files[0])}
-              />
-            </div>
-            <div>
-              <label>Difficulty</label>
-              <input
-                type="text"
-                value={manualPattern.difficulty}
-                onChange={(e) =>
-                  setManualPattern({
-                    ...manualPattern,
-                    difficulty: e.target.value
-                  })
-                }
-              />
-            </div>
-            <div>
-              <label>Size</label>
-              <input
-                type="text"
-                value={manualPattern.size}
-                onChange={(e) =>
-                  setManualPattern({ ...manualPattern, size: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label>Format</label>
-              <input
-                type="text"
-                value={manualPattern.format}
-                onChange={(e) =>
-                  setManualPattern({ ...manualPattern, format: e.target.value })
-                }
-              />
-            </div>
-        
-(Content truncated due to size limit. Use line ranges to read in chunks)
+        <ManualAddForm 
+          manualPattern={manualPattern}
+          setManualPattern={setManualPattern}
+          manualImageFile={manualImageFile}
+          setManualImageFile={setManualImageFile}
+          handleManualAddSubmit={handleManualAddSubmit}
+        />
+      )}
+
+      {/* Filters */}
+      <FilterPanel 
+        filters={filters}
+        handleFilterChange={handleFilterChange}
+        clearFilters={clearFilters}
+      />
+
+      {/* Pattern List */}
+      <PatternList 
+        filteredPatterns={filteredPatterns}
+        visibleCount={visibleCount}
+        loadMoreRef={loadMoreRef}
+        expandedPatternId={expandedPatternId}
+        toggleExpand={toggleExpand}
+        getImageInfo={getImageInfo}
+        handleEdit={handleEdit}
+        handleDelete={handleDelete}
+        pdfCategory={pdfCategory}
+        setPdfCategory={setPdfCategory}
+        pdfFile={pdfFile}
+        setPdfFile={setPdfFile}
+        uploadingPdf={uploadingPdf}
+        handlePdfUpload={handlePdfUpload}
+        formatLabel={formatLabel}
+        editingPatternId={editingPatternId}
+        editedPattern={editedPattern}
+        handleEditChange={handleEditChange}
+        handleEditSubmit={handleEditSubmit}
+        setEditingPatternId={setEditingPatternId}
+      />
+
+      {/* PDF List Component */}
+      <PDFList />
+    </div>
+  );
+}
+
+// Export the wrapped component
+export default AppWithAuth;
