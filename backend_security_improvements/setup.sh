@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Create requirements.txt file for the backend
-cat > /home/ubuntu/backend_security_improvements/requirements.txt << 'EOF'
+cat > /opt/sewing-patterns/backend_security_improvements/requirements.txt << 'EOF'
 flask==2.3.3
 flask-sqlalchemy==3.1.1
 flask-cors==4.0.0
@@ -15,7 +15,7 @@ Werkzeug==2.3.7
 EOF
 
 # Create a README.md file with installation and usage instructions
-cat > /home/ubuntu/backend_security_improvements/README.md << 'EOF'
+cat > /opt/sewing-patterns/backend_security_improvements/README.md << 'EOF'
 # Sewing Patterns Backend Security Improvements
 
 This directory contains security improvements for the Sewing Patterns application backend.
