@@ -5,6 +5,8 @@ import os
 import logging
 from datetime import timedelta
 
+
+
 # Import configuration
 from config import Config
 
@@ -22,6 +24,7 @@ def create_app(config_class=Config):
     """Create and configure the Flask application"""
     app = Flask(__name__)
     app.config.from_object(config_class)
+    CORS(app, supports_credentials=True)
     
     # Initialize extensions
     db.init_app(app)
