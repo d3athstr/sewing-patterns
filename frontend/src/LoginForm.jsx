@@ -1,49 +1,23 @@
 import React, { useState } from 'react';
+import { useAuth } from './auth.jsx';
 
 function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const API_BASE_URL = "http://192.168.14.45:5000";
+  
+  // Use the authentication context instead of direct fetch
+  const { login, loading, error } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-
-
-    try {
-      console.log(`Attempting login for user: ${username}`);
-      
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password })
-      });
-      
-      const data = await response.json();
-      console.log("Auth response:", data);
-      
-      if (response.ok) {
-        localStorage.setItem('token', data.access_token);
-        // Force page reload to update authentication state
-        window.location.reload();
-      } else {
-        setError(data.error || 'Authentication failed');
-      }
-    } catch (err) {
-      console.error('Auth error:', err);
-      setError('Connection error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-    console.log("Login form submitted") ;
-    console.log("API URL:", `${API_BASE_URL}/api/auth/login`);
-    console.log("Credentials:", { username, password: "***" });
+    
+    console.log(`Attempting login for user: ${username}`);
+    
+    // Use the login function from auth context
+    const success = await login(username, password);
+    
+    console.log("Login attempt completed, success:", success);
+    console.log("Credentials used:", { username, password: "***" });
   };
 
   return (
@@ -55,21 +29,21 @@ function LoginForm() {
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Username</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
+          <input 
+            type="text" 
+            value={username} 
+            onChange={(e) => setUsername(e.target.value)} 
+            required 
           />
         </div>
         
         <div className="form-group">
           <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
+          <input 
+            type="password" 
+            value={password} 
+            onChange={(e) => setPassword(e.target.value)} 
+            required 
           />
         </div>
         

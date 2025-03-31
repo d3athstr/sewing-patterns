@@ -3,7 +3,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 // Create an authentication context
 const AuthContext = createContext(null);
 
-// API base URL - hardcoded for now, should be environment variable in production
+// API base URL - should be environment variable in production
 const API_BASE_URL = "http://192.168.14.45:5000";
 
 export function AuthProvider({ children }) {
@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
     const checkAuth = async () => {
       if (token) {
         try {
-          console.log("Checking authentication with token");
+          console.log("Checking authentication with token:", token.substring(0, 10) + "...");
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
             setUser(userData);
           } else {
             // Token is invalid or expired
-            console.log("Token invalid or expired");
+            console.log("Token invalid or expired, status:", response.status);
             localStorage.removeItem('token');
             setToken(null);
           }
@@ -39,11 +39,11 @@ export function AuthProvider({ children }) {
           setError("Failed to verify authentication");
         }
       } else {
-        console.log("No token found");
+        console.log("No token found in localStorage");
       }
       setLoading(false);
     };
-    
+
     checkAuth();
   }, [token]);
 
@@ -54,6 +54,7 @@ export function AuthProvider({ children }) {
     
     try {
       console.log(`Attempting login for user: ${username}`);
+      
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -66,11 +67,13 @@ export function AuthProvider({ children }) {
       console.log("Login response:", data);
       
       if (response.ok && data.access_token) {
+        console.log("Login successful, storing token");
         localStorage.setItem('token', data.access_token);
         setToken(data.access_token);
         setUser(data.user);
         return true;
       } else {
+        console.error("Login failed:", data.error || "Unknown error");
         setError(data.error || "Login failed");
         return false;
       }
@@ -85,6 +88,7 @@ export function AuthProvider({ children }) {
 
   // Logout function
   const logout = () => {
+    console.log("Logging out user");
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
@@ -102,6 +106,7 @@ export function AuthProvider({ children }) {
       ...getAuthHeader()
     };
     
+    console.log(`Making authenticated request to: ${url}`);
     return fetch(`${API_BASE_URL}${url}`, {
       ...options,
       headers
@@ -109,12 +114,12 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      error, 
-      login, 
-      logout, 
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      error,
+      login,
+      logout,
       isAuthenticated: !!token,
       authFetch,
       API_BASE_URL
@@ -126,5 +131,9 @@ export function AuthProvider({ children }) {
 
 // Custom hook to use auth context
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
