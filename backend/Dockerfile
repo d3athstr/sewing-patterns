@@ -11,4 +11,4 @@ COPY . .
 EXPOSE 5000
 
 # Start the Flask application with proper host binding
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+CMD ["python", "app.py"]

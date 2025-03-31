@@ -1,34 +1,57 @@
 import React, { useState } from 'react';
-import { useAuth } from './auth';
 
 function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [email, setEmail] = useState('');
-  const { login, register, error, loading } = useAuth();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const API_BASE_URL = "http://192.168.14.45:5000";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (isRegistering) {
-      await register(username, email, password);
-    } else {
-      await login(username, password);
+    setError('');
+    setLoading(true);
+
+    try {
+      console.log(`Attempting login for user: ${username}`);
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+      
+      const data = await response.json();
+      console.log("Auth response:", data);
+      
+      if (response.ok) {
+        localStorage.setItem('token', data.access_token);
+        // Force page reload to update authentication state
+        window.location.reload();
+      } else {
+        setError(data.error || 'Authentication failed');
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError('Connection error. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="lcars-panel">
-      <h2>{isRegistering ? 'Create Account' : 'Login'}</h2>
+    <div className="lcars-panel login-form">
+      <h2>Login</h2>
       
       {error && <div className="error-message">{error}</div>}
       
       <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="username">Username</label>
+        <div className="form-group">
+          <label>Username</label>
           <input
-            id="username"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -36,23 +59,9 @@ function LoginForm() {
           />
         </div>
         
-        {isRegistering && (
-          <div>
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-        )}
-        
-        <div>
-          <label htmlFor="password">Password</label>
+        <div className="form-group">
+          <label>Password</label>
           <input
-            id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -60,18 +69,17 @@ function LoginForm() {
           />
         </div>
         
-        <button type="submit" disabled={loading}>
-          {loading ? 'Processing...' : isRegistering ? 'Register' : 'Login'}
-        </button>
-        
-        <button 
-          type="button" 
-          onClick={() => setIsRegistering(!isRegistering)}
-          className="secondary-button"
-        >
-          {isRegistering ? 'Back to Login' : 'Create Account'}
-        </button>
+        <div className="form-actions">
+          <button type="submit" disabled={loading}>
+            {loading ? 'Processing...' : 'Login'}
+          </button>
+        </div>
       </form>
+      
+      <div className="login-info">
+        <p>This application requires pre-registered access.</p>
+        <p>Please contact your administrator if you need an account.</p>
+      </div>
     </div>
   );
 }

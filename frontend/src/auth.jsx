@@ -1,14 +1,9 @@
-// Frontend Authentication Integration
-
-// 1. Create a new file: frontend/src/auth.js
-// This file will handle authentication logic
-
 import { useState, useEffect, createContext, useContext } from 'react';
 
 // Create an authentication context
 const AuthContext = createContext(null);
 
-// API base URL - use environment variable or default
+// API base URL - hardcoded for now, should be environment variable in production
 const API_BASE_URL = "http://192.168.14.45:5000";
 
 export function AuthProvider({ children }) {
@@ -22,6 +17,7 @@ export function AuthProvider({ children }) {
     const checkAuth = async () => {
       if (token) {
         try {
+          console.log("Checking authentication with token");
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -30,9 +26,11 @@ export function AuthProvider({ children }) {
           
           if (response.ok) {
             const userData = await response.json();
+            console.log("User authenticated:", userData);
             setUser(userData);
           } else {
             // Token is invalid or expired
+            console.log("Token invalid or expired");
             localStorage.removeItem('token');
             setToken(null);
           }
@@ -40,6 +38,8 @@ export function AuthProvider({ children }) {
           console.error("Auth check failed:", err);
           setError("Failed to verify authentication");
         }
+      } else {
+        console.log("No token found");
       }
       setLoading(false);
     };
@@ -53,6 +53,7 @@ export function AuthProvider({ children }) {
     setError(null);
     
     try {
+      console.log(`Attempting login for user: ${username}`);
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -62,8 +63,9 @@ export function AuthProvider({ children }) {
       });
       
       const data = await response.json();
+      console.log("Login response:", data);
       
-      if (response.ok) {
+      if (response.ok && data.access_token) {
         localStorage.setItem('token', data.access_token);
         setToken(data.access_token);
         setUser(data.user);
@@ -75,40 +77,6 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error("Login error:", err);
       setError("Login failed. Please try again.");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Register function
-  const register = async (username, email, password) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, email, password })
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        localStorage.setItem('token', data.access_token);
-        setToken(data.access_token);
-        setUser(data.user);
-        return true;
-      } else {
-        setError(data.error || "Registration failed");
-        return false;
-      }
-    } catch (err) {
-      console.error("Registration error:", err);
-      setError("Registration failed. Please try again.");
       return false;
     } finally {
       setLoading(false);
@@ -146,7 +114,6 @@ export function AuthProvider({ children }) {
       loading, 
       error, 
       login, 
-      register, 
       logout, 
       isAuthenticated: !!token,
       authFetch,
