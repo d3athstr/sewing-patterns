@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   backend:
     build: ./backend
@@ -15,7 +13,7 @@ services:
       - FLASK_SECRET_KEY=your-secret-key-here
       - JWT_SECRET_KEY=your-jwt-secret-key-here
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=secret_password
+      - ADMIN_PASSWORD=admin
       - ADMIN_EMAIL=admin@example.com
     volumes:
       - ./backend:/app

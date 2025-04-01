@@ -1,7 +1,3 @@
-"""
-Scraper module for the Sewing Patterns application.
-Provides functionality to scrape pattern data from websites.
-"""
 import requests
 from bs4 import BeautifulSoup
 import logging
@@ -50,19 +46,6 @@ def download_image_data(image_url):
         return None
 
 def scrape_pattern(brand, pattern_number):
-    """
-    Scrape pattern information from the web.
-    
-    Args:
-        brand (str): The pattern brand (e.g., "Butterick")
-        pattern_number (str): The pattern number
-        
-    Returns:
-        dict: Pattern data or error information
-        
-    Raises:
-        requests.RequestException: If network request fails
-    """
     # Brand mappings for URL construction
     brand_mappings = {
         "Butterick": ("butterick", "b"),

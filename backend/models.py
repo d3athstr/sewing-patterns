@@ -1,7 +1,3 @@
-"""
-Database models for the Sewing Patterns application.
-Defines all database tables and relationships.
-"""
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
@@ -9,7 +5,6 @@ from datetime import datetime
 db = SQLAlchemy()
 
 class Pattern(db.Model):
-    """Pattern model representing sewing patterns."""
     id = db.Column(db.Integer, primary_key=True)
     brand = db.Column(db.String(50), nullable=False)
     pattern_number = db.Column(db.String(50), nullable=False)

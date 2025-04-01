@@ -1,7 +1,3 @@
-"""
-Validation schemas for the Sewing Patterns application.
-Provides input validation for all API endpoints.
-"""
 from marshmallow import Schema, fields, validate, ValidationError
 
 class PatternSchema(Schema):
