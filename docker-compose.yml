@@ -1,6 +1,7 @@
 services:
   backend:
     build: ./backend
+    container_name: sewing_patterns_backend
     ports:
       - "5000:5000"
     environment:
@@ -15,6 +16,7 @@ services:
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=admin
       - ADMIN_EMAIL=admin@example.com
+      - DATABASE_URL=postgresql://user:password@db:5432/sewing_patterns
     volumes:
       - ./backend:/app
     depends_on:
@@ -22,12 +24,14 @@ services:
 
   db:
     image: postgres:13
+    container_name: sewing_patterns_db
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=sewing_patterns
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
+      - ./backups:/backups
     ports:
       - "5432:5432"
 
