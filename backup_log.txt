@@ -14,6 +14,7 @@ Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-16_02-00-
 pg_dump: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  the database system is in recovery mode
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-17_02-00-01.sql
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-18_02-00-01.sql
+<<<<<<< HEAD
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-19_02-00-01.sql
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-20_02-00-02.sql
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-21_02-00-01.sql
@@ -22,3 +23,10 @@ Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-23_02-00-
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-24_02-00-01.sql
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-25_02-00-01.sql
 Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-03-30_02-00-01.sql
+=======
+Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-04-01_02-00-01.sql
+>>>>>>> 5d3a827 (Auto backup 2025-04-01_06:00:02)
+Error response from daemon: No such container: sewing_patterns_db
+Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-04-02_02-00-01.sql
+Error response from daemon: No such container: sewing_patterns_db
+Backup completed: /opt/sewing-patterns/backups/sewing_patterns_2025-04-03_02-00-01.sql
