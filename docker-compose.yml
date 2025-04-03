@@ -2,6 +2,7 @@ services:
   backend:
     build: ./backend
     container_name: sewing_patterns_backend
+    restart: always
     ports:
       - "5000:5000"
     environment:
@@ -25,6 +26,7 @@ services:
   db:
     image: postgres:13
     container_name: sewing_patterns_db
+    restart: always
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
@@ -36,5 +38,5 @@ services:
       - "5432:5432"
 
 volumes:
-  postgres_data:
+  db_data: {}
 
