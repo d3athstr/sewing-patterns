@@ -77,9 +77,11 @@ export function AuthProvider({ children }) {
     setError(null);
     
     try {
-      console.log(`Attempting login request to ${API_BASE_URL}/api/auth/login`);
+      // Ensure we're using the correct login endpoint
+      const loginUrl = `${API_BASE_URL}/api/auth/login`;
+      console.log(`Attempting login request to ${loginUrl}`);
       
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -89,10 +91,20 @@ export function AuthProvider({ children }) {
       
       console.log("Login response status:", response.status);
       
+      if (!response.ok) {
+        console.error("Login failed with status:", response.status);
+        if (response.status === 404) {
+          throw new Error("Login endpoint not found. Please check server configuration.");
+        }
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error(`Login failed with status ${response.status}`);
+      }
+      
       const data = await response.json();
       console.log("Login response data:", data);
       
-      if (response.ok && data.access_token) {
+      if (data.access_token) {
         console.log("Login successful, storing token");
         localStorage.setItem('token', data.access_token);
         setToken(data.access_token);
@@ -101,15 +113,15 @@ export function AuthProvider({ children }) {
         console.log("isAuthenticated set to TRUE after successful login");
         return true;
       } else {
-        console.error("Login failed:", data.error || "Unknown error");
-        setError(data.error || "Login failed");
+        console.error("Login failed: No access token in response");
+        setError("Login failed: Invalid server response");
         setIsAuthenticated(false);
         console.log("isAuthenticated set to FALSE after failed login");
         return false;
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Login failed. Please try again.");
+      setError(err.message || "Login failed. Please try again.");
       setIsAuthenticated(false);
       console.log("isAuthenticated set to FALSE due to login error");
       return false;
@@ -141,16 +153,18 @@ export function AuthProvider({ children }) {
       ...getAuthHeader()
     };
     
-    console.log(`Making authenticated request to: ${API_BASE_URL}${url}`);
+    // Ensure URL starts with a slash if it doesn't already
+    const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
+    console.log(`Making authenticated request to: ${API_BASE_URL}${normalizedUrl}`);
     console.log("Request headers:", headers);
     
     try {
-      const response = await fetch(`${API_BASE_URL}${url}`, {
+      const response = await fetch(`${API_BASE_URL}${normalizedUrl}`, {
         ...options,
         headers
       });
       
-      console.log(`Response status for ${url}:`, response.status);
+      console.log(`Response status for ${normalizedUrl}:`, response.status);
       
       // If unauthorized, clear token and user
       if (response.status === 401) {
@@ -164,7 +178,7 @@ export function AuthProvider({ children }) {
       
       return response;
     } catch (error) {
-      console.error(`Error in authFetch for ${url}:`, error);
+      console.error(`Error in authFetch for ${normalizedUrl}:`, error);
       throw error;
     }
   };
