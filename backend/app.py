@@ -264,6 +264,31 @@ def create_app(config_class=Config):
             logger.error(f"Error getting PDF {pdf_id}: {str(e)}")
             return jsonify({"error": "Failed to retrieve PDF"}), 500
     
+    # New route to get all PDFs
+    @app.route('/pattern_pdfs', methods=['GET'])
+    def get_all_pdfs():
+        """Get all pattern PDFs"""
+        try:
+            from models import PatternPDF
+            pdfs = PatternPDF.query.all()
+            
+            # Get pattern information for each PDF
+            pdf_list = []
+            for pdf in pdfs:
+                pdf_dict = pdf.to_dict()
+                
+                # Get pattern information if available
+                if pdf.pattern:
+                    pdf_dict['pattern_brand'] = pdf.pattern.brand
+                    pdf_dict['pattern_number'] = pdf.pattern.pattern_number
+                
+                pdf_list.append(pdf_dict)
+            
+            return jsonify(pdf_list)
+        except Exception as e:
+            logger.error(f"Error getting all PDFs: {str(e)}")
+            return jsonify({"error": "Failed to retrieve PDFs"}), 500
+    
     # Scraper route
     @app.route('/api/scrape', methods=['GET'])
     @jwt_required()
