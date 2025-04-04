@@ -52,8 +52,8 @@ class UserLoginSchema(Schema):
     username = fields.Str(required=True)
     password = fields.Str(required=True)
 
-# Create blueprint
-auth_bp = Blueprint('auth', __name__)
+# Create blueprint with the correct URL prefix
+auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 # Initialize schemas
 registration_schema = UserRegistrationSchema()
