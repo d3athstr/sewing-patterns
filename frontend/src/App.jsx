@@ -1,12 +1,12 @@
 import "./lcars.css";
 import { useState, useEffect, useRef } from "react";
-import PDFList from "./PDFList";
 import { AuthProvider, useAuth } from './auth.jsx';
 import LoginForm from './LoginForm.jsx';
 import FilterPanel from './components/FilterPanel';
 import AddPatternPanel from './components/AddPatternPanel';
 import ManualAddForm from './components/ManualAddForm';
 import PatternList from './components/PatternList';
+import PDFList from './components/PDFList';
 
 // Main App component wrapped with AuthProvider
 function AppWithAuth() {
@@ -34,6 +34,7 @@ function AppContent() {
   
   console.log("AppContent rendering, isAuthenticated:", isAuthenticated);
   console.log("User:", user);
+  console.log("API_BASE_URL:", API_BASE_URL);
 
   // Helper to format labels: remove underscores and convert to Title Case.
   const formatLabel = (label) => {
@@ -113,12 +114,12 @@ function AppContent() {
     ? patterns
         .filter((pattern) => {
           return Object.entries(filters).every(([key, value]) =>
-            value ? String(pattern[key]).toLowerCase().includes(value) : true
+            value ? String(pattern[key]).toLowerCase().includes(value.toLowerCase()) : true
           );
         })
         .sort((a, b) => {
           const extractNumber = (patternNumber) => {
-            const numericPart = patternNumber.replace(/[^\d]/g, "");
+            const numericPart = patternNumber ? patternNumber.replace(/[^\d]/g, "") : "";
             return numericPart ? parseInt(numericPart, 10) : Infinity;
           };
           return extractNumber(a.pattern_number) - extractNumber(b.pattern_number);
@@ -184,8 +185,13 @@ function AppContent() {
 
   // Helper: returns image info from the backend
   const getImageInfo = (pattern) => {
+    // Ensure image_url is a full URL with API_BASE_URL if it's a relative path
+    const imageUrl = pattern.image_url && pattern.image_url.startsWith('/') 
+      ? `${API_BASE_URL}${pattern.image_url}`
+      : pattern.image_url;
+      
     return {
-      src: pattern.image_url,
+      src: imageUrl,
       downloaded: pattern.downloaded,
     };
   };
@@ -504,45 +510,33 @@ function AppContent() {
       />
 
       {/* Pattern List */}
-      {!loading && !error && (
-        <>
-          {!patterns || patterns.length === 0 ? (
-            <div className="lcars-panel">
-              <h2>No Patterns Found</h2>
-              <p>There are no patterns in the database yet. Use the "Add Pattern" panel above to add some patterns.</p>
-            </div>
-          ) : (
-            <PatternList 
-              filteredPatterns={filteredPatterns}
-              visibleCount={visibleCount}
-              loadMoreRef={loadMoreRef}
-              expandedPatternId={expandedPatternId}
-              toggleExpand={toggleExpand}
-              getImageInfo={getImageInfo}
-              handleEdit={handleEdit}
-              handleDelete={handleDelete}
-              pdfCategory={pdfCategory}
-              setPdfCategory={setPdfCategory}
-              pdfFile={pdfFile}
-              setPdfFile={setPdfFile}
-              uploadingPdf={uploadingPdf}
-              handlePdfUpload={handlePdfUpload}
-              formatLabel={formatLabel}
-              editingPatternId={editingPatternId}
-              editedPattern={editedPattern}
-              handleEditChange={handleEditChange}
-              handleEditSubmit={handleEditSubmit}
-              setEditingPatternId={setEditingPatternId}
-            />
-          )}
-        </>
-      )}
+      <PatternList 
+        filteredPatterns={filteredPatterns}
+        visibleCount={visibleCount}
+        loadMoreRef={loadMoreRef}
+        expandedPatternId={expandedPatternId}
+        toggleExpand={toggleExpand}
+        editingPatternId={editingPatternId}
+        editedPattern={editedPattern}
+        handleEditChange={handleEditChange}
+        handleEditSubmit={handleEditSubmit}
+        handleEdit={handleEdit}
+        handleDelete={handleDelete}
+        getImageInfo={getImageInfo}
+        pdfFile={pdfFile}
+        setPdfFile={setPdfFile}
+        pdfCategory={pdfCategory}
+        setPdfCategory={setPdfCategory}
+        uploadingPdf={uploadingPdf}
+        handlePdfUpload={handlePdfUpload}
+        formatLabel={formatLabel}
+        API_BASE_URL={API_BASE_URL}
+      />
 
-      {/* PDF List Component */}
-      <PDFList />
+      {/* PDF List */}
+      <PDFList API_BASE_URL={API_BASE_URL} />
     </div>
   );
 }
 
-// Export the wrapped component
 export default AppWithAuth;

@@ -66,7 +66,7 @@ function PDFList({ API_BASE_URL }) {
         {safePdfs.map((pdf) => (
           <li key={pdf.id || `pdf-${Math.random()}`}>
             <a 
-              // Fixed PDF URL construction
+              // Fixed PDF URL construction - ensure we use the full URL with API_BASE_URL
               href={`${API_BASE_URL}${pdf.pdf_url && pdf.pdf_url.startsWith('/') ? pdf.pdf_url : '/api/pdfs/' + pdf.id}`}
               target="_blank" 
               rel="noopener noreferrer"
