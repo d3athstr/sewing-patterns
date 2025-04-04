@@ -3,10 +3,8 @@ import { useState, useEffect, createContext, useContext } from 'react';
 // Create an authentication context
 const AuthContext = createContext(null);
 
-// Use relative URL or determine from window.location
-const API_BASE_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
-  ? 'http://localhost:5000'  // Local development
-  : window.location.origin;  // Production/deployed environment
+// Use direct port 5000 connection to backend API based on curl test results
+const API_BASE_URL = "http://192.168.14.45:5000";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -29,8 +27,8 @@ export function AuthProvider({ children }) {
         try {
           console.log("Checking authentication with token:", token.substring(0, 10) + "...");
           
-          // Use direct URL without /api prefix for auth endpoints
-          const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          // Use direct API endpoint with port 5000
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -78,8 +76,8 @@ export function AuthProvider({ children }) {
     setError(null);
     
     try {
-      // Use direct URL without /api prefix for auth endpoints
-      const loginUrl = `${API_BASE_URL}/auth/login`;
+      // Use direct API endpoint with port 5000 as confirmed by curl test
+      const loginUrl = `${API_BASE_URL}/api/auth/login`;
       console.log(`Attempting login request to ${loginUrl}`);
       
       const response = await fetch(loginUrl, {
@@ -96,6 +94,9 @@ export function AuthProvider({ children }) {
         console.error("Login failed with status:", response.status);
         if (response.status === 404) {
           throw new Error("Login endpoint not found. Please check server configuration.");
+        }
+        if (response.status === 405) {
+          throw new Error("Method not allowed. The server doesn't accept POST requests to this endpoint.");
         }
         const errorText = await response.text();
         console.error("Error response:", errorText);
@@ -157,10 +158,8 @@ export function AuthProvider({ children }) {
     // Ensure URL starts with a slash if it doesn't already
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
     
-    // Special handling for auth endpoints - remove /api prefix
-    const finalUrl = normalizedUrl.startsWith('/api/auth/') 
-      ? `${API_BASE_URL}${normalizedUrl.replace('/api/auth/', '/auth/')}`
-      : `${API_BASE_URL}${normalizedUrl}`;
+    // Use direct API endpoint with port 5000
+    const finalUrl = `${API_BASE_URL}${normalizedUrl}`;
       
     console.log(`Making authenticated request to: ${finalUrl}`);
     console.log("Request headers:", headers);
