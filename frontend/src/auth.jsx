@@ -3,8 +3,10 @@ import { useState, useEffect, createContext, useContext } from 'react';
 // Create an authentication context
 const AuthContext = createContext(null);
 
-// API base URL - should be environment variable in production
-const API_BASE_URL = "http://192.168.14.45:5000";
+// Use relative URL or determine from window.location
+const API_BASE_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
+  ? 'http://localhost:5000'  // Local development
+  : window.location.origin;  // Production/deployed environment
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -16,6 +18,7 @@ export function AuthProvider({ children }) {
 
   console.log("AuthProvider initialized with token:", token ? "exists" : "none");
   console.log("Initial isAuthenticated state:", isAuthenticated);
+  console.log("Using API_BASE_URL:", API_BASE_URL);
 
   // Check if user is authenticated on load
   useEffect(() => {
