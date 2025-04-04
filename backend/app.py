@@ -1,10 +1,10 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
 import os
 import logging
 from datetime import timedelta
-
+import io
 
 
 # Import configuration
@@ -112,8 +112,12 @@ def create_app(config_class=Config):
                 
                 # Handle image if provided
                 if image_file:
-                    # Save image logic here
-                    pass
+                    # Save image to database
+                    pattern.image_data = image_file.read()
+                    db.session.add(pattern)
+                    db.session.commit()
+                    # Set a fallback URL
+                    pattern.image = f"/api/patterns/{pattern.id}/image"
                 
                 db.session.add(pattern)
                 db.session.commit()
@@ -186,7 +190,7 @@ def create_app(config_class=Config):
     def upload_pdf(pattern_id):
         """Upload a PDF for a pattern"""
         try:
-            from models import Pattern, PDF
+            from models import Pattern, PatternPDF as PDF
             pattern = Pattern.query.get(pattern_id)
             
             if not pattern:
@@ -199,10 +203,19 @@ def create_app(config_class=Config):
             if not pdf_file or not category:
                 return jsonify({"error": "PDF file and category are required"}), 400
             
-            # Save PDF logic here
-            # For now, just create a PDF record
-            pdf = PDF(pattern_id=pattern_id, category=category, pdf_url="placeholder")
+            # Save PDF data to database
+            pdf_data = pdf_file.read()
+            pdf = PDF(
+                pattern_id=pattern_id, 
+                category=category, 
+                pdf_data=pdf_data,
+                pdf_url="placeholder"  # Will be updated after commit
+            )
             db.session.add(pdf)
+            db.session.commit()
+            
+            # Update the URL with the correct ID after commit
+            pdf.pdf_url = f"/api/pdfs/{pdf.id}"
             db.session.commit()
             
             return jsonify(pdf.to_dict()), 201
@@ -210,6 +223,46 @@ def create_app(config_class=Config):
             logger.error(f"Error uploading PDF for pattern {pattern_id}: {str(e)}")
             db.session.rollback()
             return jsonify({"error": "Failed to upload PDF"}), 500
+    
+    # New route to serve pattern images
+    @app.route('/api/patterns/<int:pattern_id>/image', methods=['GET'])
+    def get_pattern_image(pattern_id):
+        """Get a pattern image"""
+        try:
+            from models import Pattern
+            pattern = Pattern.query.get(pattern_id)
+            
+            if not pattern or not pattern.image_data:
+                return jsonify({"error": "Image not found"}), 404
+            
+            return send_file(
+                io.BytesIO(pattern.image_data),
+                mimetype='image/jpeg'  # Adjust mimetype as needed
+            )
+        except Exception as e:
+            logger.error(f"Error getting pattern image {pattern_id}: {str(e)}")
+            return jsonify({"error": "Failed to retrieve image"}), 500
+    
+    # New route to serve PDFs
+    @app.route('/api/pdfs/<int:pdf_id>', methods=['GET'])
+    def get_pdf(pdf_id):
+        """Get a PDF file"""
+        try:
+            from models import PatternPDF
+            pdf = PatternPDF.query.get(pdf_id)
+            
+            if not pdf or not pdf.pdf_data:
+                return jsonify({"error": "PDF not found"}), 404
+            
+            return send_file(
+                io.BytesIO(pdf.pdf_data),
+                mimetype='application/pdf',
+                as_attachment=False,
+                download_name=f"{pdf.category}_{pdf.id}.pdf"
+            )
+        except Exception as e:
+            logger.error(f"Error getting PDF {pdf_id}: {str(e)}")
+            return jsonify({"error": "Failed to retrieve PDF"}), 500
     
     # Scraper route
     @app.route('/api/scrape', methods=['GET'])

@@ -66,13 +66,11 @@ function PDFList({ API_BASE_URL }) {
         {safePdfs.map((pdf) => (
           <li key={pdf.id || `pdf-${Math.random()}`}>
             <a 
-              // Fix PDF URL by ensuring it has the correct base URL
-              href={pdf.url && pdf.url.startsWith('http') 
-                ? pdf.url 
-                : `${API_BASE_URL}${pdf.url || `/api/patterns/${pdf.pattern_id}/pdfs/${pdf.id}`}`}
+              // Fixed PDF URL construction
+              href={`${API_BASE_URL}${pdf.pdf_url && pdf.pdf_url.startsWith('/') ? pdf.pdf_url : '/api/pdfs/' + pdf.id}`}
               target="_blank" 
               rel="noopener noreferrer"
-              onClick={() => console.log("Opening PDF:", pdf.url)}
+              onClick={() => console.log("Opening PDF:", pdf.pdf_url)}
             >
               {pdf.pattern_brand} {pdf.pattern_number} - {pdf.category || "Document"}
             </a>
