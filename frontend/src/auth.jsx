@@ -1,65 +1,208 @@
-// src/auth.jsx
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 
+// Create an authentication context
 const AuthContext = createContext(null);
-export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider = ({ children }) => {
+// API base URL - should be environment variable in production
+const API_BASE_URL = "http://192.168.14.45:5000";
+
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  // Explicitly initialize isAuthenticated state
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
 
-  const API_BASE_URL = "http://192.168.14.45:5000";
+  console.log("AuthProvider initialized with token:", token ? "exists" : "none");
+  console.log("Initial isAuthenticated state:", isAuthenticated);
 
-  const login = async (username, password) => {
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-
-    const data = await res.json();
-    if (data.access_token) {
-      localStorage.setItem('token', data.access_token);
-      await fetchUser();
-    } else {
-      console.error('Login failed:', data);
-    }
-  };
-
-  const fetchUser = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-
-    const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (res.ok) {
-      const userData = await res.json();
-      setUser(userData);
-    } else {
-      localStorage.removeItem('token');
-      setUser(null);
-    }
-    setLoading(false);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-  };
-
+  // Check if user is authenticated on load
   useEffect(() => {
-    fetchUser();
-  }, []);
+    const checkAuth = async () => {
+      console.log("checkAuth running, token:", token ? "exists" : "none");
+      
+      if (token) {
+        try {
+          console.log("Checking authentication with token:", token.substring(0, 10) + "...");
+          
+          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          console.log("Auth check response status:", response.status);
+          
+          if (response.ok) {
+            const userData = await response.json();
+            console.log("User authenticated successfully:", userData);
+            setUser(userData);
+            setIsAuthenticated(true);
+            console.log("isAuthenticated set to TRUE");
+          } else {
+            // Token is invalid or expired
+            console.log("Token invalid or expired, status:", response.status);
+            localStorage.removeItem('token');
+            setToken(null);
+            setIsAuthenticated(false);
+            console.log("isAuthenticated set to FALSE");
+          }
+        } catch (err) {
+          console.error("Auth check failed:", err);
+          setError("Failed to verify authentication");
+          setIsAuthenticated(false);
+          console.log("isAuthenticated set to FALSE due to error");
+        }
+      } else {
+        console.log("No token found in localStorage");
+        setIsAuthenticated(false);
+        console.log("isAuthenticated set to FALSE due to no token");
+      }
+      
+      setLoading(false);
+      console.log("Authentication check completed, loading set to false");
+    };
+
+    checkAuth();
+  }, [token]);
+
+  // Login function
+  const login = async (username, password) => {
+    console.log("Login function called for user:", username);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log(`Attempting login request to ${API_BASE_URL}/api/auth/login`);
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+      });
+      
+      console.log("Login response status:", response.status);
+      
+      const data = await response.json();
+      console.log("Login response data:", data);
+      
+      if (response.ok && data.access_token) {
+        console.log("Login successful, storing token");
+        localStorage.setItem('token', data.access_token);
+        setToken(data.access_token);
+        setUser(data.user || { username: username }); // Fallback if user data not provided
+        setIsAuthenticated(true);
+        console.log("isAuthenticated set to TRUE after successful login");
+        return true;
+      } else {
+        console.error("Login failed:", data.error || "Unknown error");
+        setError(data.error || "Login failed");
+        setIsAuthenticated(false);
+        console.log("isAuthenticated set to FALSE after failed login");
+        return false;
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Login failed. Please try again.");
+      setIsAuthenticated(false);
+      console.log("isAuthenticated set to FALSE due to login error");
+      return false;
+    } finally {
+      setLoading(false);
+      console.log("Login attempt completed, loading set to false");
+    }
+  };
+
+  // Logout function
+  const logout = () => {
+    console.log("Logging out user");
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    setIsAuthenticated(false);
+    console.log("isAuthenticated set to FALSE after logout");
+  };
+
+  // Get auth header for API requests
+  const getAuthHeader = () => {
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  };
+
+  // Authenticated fetch function
+  const authFetch = async (url, options = {}) => {
+    const headers = {
+      ...options.headers,
+      ...getAuthHeader()
+    };
+    
+    console.log(`Making authenticated request to: ${API_BASE_URL}${url}`);
+    console.log("Request headers:", headers);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        ...options,
+        headers
+      });
+      
+      console.log(`Response status for ${url}:`, response.status);
+      
+      // If unauthorized, clear token and user
+      if (response.status === 401) {
+        console.log("Received 401 Unauthorized, clearing authentication");
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+        setIsAuthenticated(false);
+        console.log("isAuthenticated set to FALSE due to 401 response");
+      }
+      
+      return response;
+    } catch (error) {
+      console.error(`Error in authFetch for ${url}:`, error);
+      throw error;
+    }
+  };
+
+  // Debug: Log when auth state changes
+  useEffect(() => {
+    console.log("Auth state updated - isAuthenticated:", isAuthenticated);
+    console.log("User:", user);
+  }, [isAuthenticated, user]);
+
+  const authContextValue = {
+    user,
+    loading,
+    error,
+    login,
+    logout,
+    isAuthenticated,
+    authFetch,
+    API_BASE_URL
+  };
+  
+  console.log("Rendering AuthProvider with context:", {
+    user: user ? "exists" : "null",
+    loading,
+    error: error || "none",
+    isAuthenticated
+  });
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={authContextValue}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
+
+// Custom hook to use auth context
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    console.error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
