@@ -29,7 +29,8 @@ export function AuthProvider({ children }) {
         try {
           console.log("Checking authentication with token:", token.substring(0, 10) + "...");
           
-          const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          // Use direct URL without /api prefix for auth endpoints
+          const response = await fetch(`${API_BASE_URL}/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -77,8 +78,8 @@ export function AuthProvider({ children }) {
     setError(null);
     
     try {
-      // Ensure we're using the correct login endpoint
-      const loginUrl = `${API_BASE_URL}/api/auth/login`;
+      // Use direct URL without /api prefix for auth endpoints
+      const loginUrl = `${API_BASE_URL}/auth/login`;
       console.log(`Attempting login request to ${loginUrl}`);
       
       const response = await fetch(loginUrl, {
@@ -155,11 +156,17 @@ export function AuthProvider({ children }) {
     
     // Ensure URL starts with a slash if it doesn't already
     const normalizedUrl = url.startsWith('/') ? url : `/${url}`;
-    console.log(`Making authenticated request to: ${API_BASE_URL}${normalizedUrl}`);
+    
+    // Special handling for auth endpoints - remove /api prefix
+    const finalUrl = normalizedUrl.startsWith('/api/auth/') 
+      ? `${API_BASE_URL}${normalizedUrl.replace('/api/auth/', '/auth/')}`
+      : `${API_BASE_URL}${normalizedUrl}`;
+      
+    console.log(`Making authenticated request to: ${finalUrl}`);
     console.log("Request headers:", headers);
     
     try {
-      const response = await fetch(`${API_BASE_URL}${normalizedUrl}`, {
+      const response = await fetch(finalUrl, {
         ...options,
         headers
       });
