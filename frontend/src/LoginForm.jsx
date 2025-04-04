@@ -58,7 +58,6 @@ function LoginForm() {
       <div className="login-info">
         <p>This application requires pre-registered access.</p>
         <p>Please contact your administrator if you need an account.</p>
-        <p>Default admin credentials: username="admin", password="admin_password"</p>
       </div>
     </div>
   );

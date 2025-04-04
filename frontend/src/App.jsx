@@ -31,6 +31,9 @@ function AppContent() {
   
   // Use auth context instead of hardcoded API URL
   const { isAuthenticated, user, authFetch, API_BASE_URL, logout } = useAuth();
+  
+  console.log("AppContent rendering, isAuthenticated:", isAuthenticated);
+  console.log("User:", user);
 
   // Helper to format labels: remove underscores and convert to Title Case.
   const formatLabel = (label) => {
@@ -122,6 +125,8 @@ function AppContent() {
 
   // Fetch patterns when authenticated
   useEffect(() => {
+    console.log("useEffect for fetching patterns, isAuthenticated:", isAuthenticated);
+    
     if (isAuthenticated) {
       setLoading(true);
       setError(null);
@@ -129,6 +134,7 @@ function AppContent() {
       console.log("Fetching patterns...");
       authFetch('/api/patterns')
         .then((res) => {
+          console.log("Patterns API response status:", res.status);
           if (!res.ok) {
             throw new Error(`HTTP error! Status: ${res.status}`);
           }
@@ -411,6 +417,7 @@ function AppContent() {
 
   // If not authenticated, show login form
   if (!isAuthenticated) {
+    console.log("Not authenticated, showing login form");
     return (
       <div className="lcars-container">
         <h1>Sewing Patterns Manager</h1>
@@ -420,13 +427,14 @@ function AppContent() {
   }
 
   // Main authenticated UI
+  console.log("Authenticated, rendering main UI");
   return (
     <div className="lcars-container">
       <h1>Sewing Patterns Manager</h1>
       
       {user && (
         <div className="user-info">
-          <p>Logged in as: {user.username}</p>
+          <p>Logged in as: {user.username || "Admin"}</p>
           <button onClick={logout}>Logout</button>
         </div>
       )}
