@@ -2,11 +2,11 @@ import "./lcars.css";
 import { useState, useEffect, useRef } from "react";
 import { AuthProvider, useAuth } from './auth.jsx';
 import LoginForm from './LoginForm.jsx';
-import FilterPanel from './components/FilterPanel';
-import AddPatternPanel from './components/AddPatternPanel';
-import ManualAddForm from './components/ManualAddForm';
-import PatternList from './components/PatternList';
-import PDFList from './components/PDFList';
+import FilterPanel from './components/FilterPanel.jsx';
+import AddPatternPanel from './components/AddPatternPanel.jsx';
+import ManualAddForm from './components/ManualAddForm.jsx';
+import PatternList from './components/PatternList.jsx';
+import PDFList from '.PDFList.jsx';
 
 // Main App component wrapped with AuthProvider
 function AppWithAuth() {
