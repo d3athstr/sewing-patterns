@@ -109,19 +109,21 @@ function AppContent() {
   const loadMoreRef = useRef(null);
 
   // Apply filters and sorting
-  const filteredPatterns = patterns
-    .filter((pattern) => {
-      return Object.entries(filters).every(([key, value]) =>
-        value ? String(pattern[key]).toLowerCase().includes(value) : true
-      );
-    })
-    .sort((a, b) => {
-      const extractNumber = (patternNumber) => {
-        const numericPart = patternNumber.replace(/[^\d]/g, "");
-        return numericPart ? parseInt(numericPart, 10) : Infinity;
-      };
-      return extractNumber(a.pattern_number) - extractNumber(b.pattern_number);
-    });
+  const filteredPatterns = patterns && Array.isArray(patterns)
+    ? patterns
+        .filter((pattern) => {
+          return Object.entries(filters).every(([key, value]) =>
+            value ? String(pattern[key]).toLowerCase().includes(value) : true
+          );
+        })
+        .sort((a, b) => {
+          const extractNumber = (patternNumber) => {
+            const numericPart = patternNumber.replace(/[^\d]/g, "");
+            return numericPart ? parseInt(numericPart, 10) : Infinity;
+          };
+          return extractNumber(a.pattern_number) - extractNumber(b.pattern_number);
+        })
+    : [];
 
   // Fetch patterns when authenticated
   useEffect(() => {
@@ -142,13 +144,17 @@ function AppContent() {
         })
         .then((data) => {
           console.log("Patterns fetched successfully:", data);
-          setPatterns(data);
+          // Ensure data is an array
+          const patternsArray = Array.isArray(data) ? data : [];
+          setPatterns(patternsArray);
           setLoading(false);
         })
         .catch((err) => {
           console.error("Error fetching patterns:", err);
           setError("Failed to load patterns. Please try again later.");
           setLoading(false);
+          // Initialize patterns as empty array on error
+          setPatterns([]);
         });
     }
   }, [isAuthenticated, authFetch]);
@@ -235,7 +241,10 @@ function AppContent() {
         return authFetch('/api/patterns')
           .then((res) => res.json())
           .then((patterns) => {
-            const existingPattern = patterns.find(
+            // Ensure patterns is an array
+            const patternsArray = Array.isArray(patterns) ? patterns : [];
+            
+            const existingPattern = patternsArray.find(
               (p) => p.brand === scrapedData.brand && p.pattern_number === scrapedData.pattern_number
             );
             
@@ -267,7 +276,10 @@ function AppContent() {
       .then((addedOrUpdatedPattern) => {
         console.log("✅ Updated Pattern:", addedOrUpdatedPattern);
         setPatterns((prev) => {
-          const updated = prev.map((p) =>
+          // Ensure prev is an array
+          const prevArray = Array.isArray(prev) ? prev : [];
+          
+          const updated = prevArray.map((p) =>
             p.id === addedOrUpdatedPattern.id ? addedOrUpdatedPattern : p
           );
           return updated.some((p) => p.id === addedOrUpdatedPattern.id)
@@ -307,7 +319,11 @@ function AppContent() {
         return res.json();
       })
       .then((addedPattern) => {
-        setPatterns((prev) => [...prev, addedPattern]);
+        setPatterns((prev) => {
+          // Ensure prev is an array
+          const prevArray = Array.isArray(prev) ? prev : [];
+          return [...prevArray, addedPattern];
+        });
         setManualPattern({
           brand: "",
           pattern_number: "",
@@ -372,9 +388,11 @@ function AppContent() {
     })
       .then((res) => res.json())
       .then((updatedPattern) => {
-        setPatterns((prev) =>
-          prev.map((p) => (p.id === updatedPattern.id ? updatedPattern : p))
-        );
+        setPatterns((prev) => {
+          // Ensure prev is an array
+          const prevArray = Array.isArray(prev) ? prev : [];
+          return prevArray.map((p) => (p.id === updatedPattern.id ? updatedPattern : p));
+        });
         setEditingPatternId(null);
         setEditedPattern({});
       })
@@ -390,7 +408,11 @@ function AppContent() {
         method: "DELETE"
       })
         .then(() => {
-          setPatterns((prev) => prev.filter((p) => p.id !== patternId));
+          setPatterns((prev) => {
+            // Ensure prev is an array
+            const prevArray = Array.isArray(prev) ? prev : [];
+            return prevArray.filter((p) => p.id !== patternId);
+          });
           if (expandedPatternId === patternId) {
             setExpandedPatternId(null);
           }
@@ -484,7 +506,7 @@ function AppContent() {
       {/* Pattern List */}
       {!loading && !error && (
         <>
-          {patterns.length === 0 ? (
+          {!patterns || patterns.length === 0 ? (
             <div className="lcars-panel">
               <h2>No Patterns Found</h2>
               <p>There are no patterns in the database yet. Use the "Add Pattern" panel above to add some patterns.</p>
