@@ -1,34 +1,82 @@
-import { useState, useEffect } from 'react';
+import React from 'react';
 
+// PDFList component with robust array handling
 function PDFList() {
-  const [pdfs, setPdfs] = useState([]);
-  const API_BASE_URL = "http://192.168.14.45:5000";
+  const [pdfs, setPdfs] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
 
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/pattern_pdfs`)
-      .then((res) => res.json())
-      .then((data) => setPdfs(data))
-      .catch((err) => console.error("Error fetching PDFs:", err));
+  React.useEffect(() => {
+    console.log("PDFList component mounted, fetching PDFs");
+    
+    // Fetch PDFs from the server
+    fetch('/pattern_pdfs')
+      .then(response => {
+        console.log("PDF fetch response status:", response.status);
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log("No PDFs found (404 response)");
+            setPdfs([]);
+            setLoading(false);
+            return [];
+          }
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log("PDFs data received:", data);
+        // Ensure data is always treated as an array
+        const safeData = Array.isArray(data) ? data : [];
+        setPdfs(safeData);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching PDFs:", err);
+        setError(err.message);
+        setLoading(false);
+        // Initialize as empty array on error
+        setPdfs([]);
+      });
   }, []);
 
+  // If loading, show loading message
+  if (loading) {
+    return <div className="lcars-panel">Loading PDF list...</div>;
+  }
+
+  // If error, show error message
+  if (error) {
+    return <div className="lcars-panel error">Error loading PDFs: {error}</div>;
+  }
+
+  // Ensure pdfs is always treated as an array
+  const safePdfs = Array.isArray(pdfs) ? pdfs : [];
+
+  // If no PDFs, show message
+  if (safePdfs.length === 0) {
+    return <div className="lcars-panel">No PDFs available</div>;
+  }
+
+  // Render PDF list
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>PDF Files</h2>
-      {pdfs.length === 0 ? (
-        <p>No PDF records available.</p>
-      ) : (
-        <ul>
-          {pdfs.map((pdf) => (
-            <li key={pdf.id}>
-              <strong>{pdf.category}</strong> {pdf.downloaded ? "(Downloaded)" : "(Fallback)"}:{" "}
-              <a href={pdf.pdf_url} target="_blank" rel="noreferrer">View PDF</a>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="lcars-panel pdf-list-container">
+      <h2>All Pattern PDFs</h2>
+      <ul className="pdf-list">
+        {safePdfs.map((pdf) => (
+          <li key={pdf.id || `pdf-${Math.random()}`}>
+            <a 
+              href={pdf.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+            >
+              {pdf.pattern_brand} {pdf.pattern_number} - {pdf.category || "Document"}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
 export default PDFList;
-
