@@ -6,7 +6,11 @@ import FilterPanel from './components/FilterPanel.jsx';
 import AddPatternPanel from './components/AddPatternPanel.jsx';
 import ManualAddForm from './components/ManualAddForm.jsx';
 import PatternList from './components/PatternList.jsx';
+<<<<<<< HEAD
 import PDFList from './PDFList.jsx';
+=======
+import PDFList from '.PDFList.jsx';
+>>>>>>> 4cd176afc406a27bbff8b461240697b7c5804e7a
 
 // Main App component wrapped with AuthProvider
 function AppWithAuth() {
