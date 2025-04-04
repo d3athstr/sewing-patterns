@@ -1,6 +1,6 @@
 import React from 'react';
 
-// PatternList component with robust array handling
+// PatternList component with fixed image and PDF loading
 function PatternList({ 
   filteredPatterns, 
   visibleCount, 
@@ -21,7 +21,8 @@ function PatternList({
   editedPattern, 
   handleEditChange, 
   handleEditSubmit, 
-  setEditingPatternId 
+  setEditingPatternId,
+  API_BASE_URL
 }) {
   // Ensure filteredPatterns is always an array
   const safePatterns = Array.isArray(filteredPatterns) ? filteredPatterns : [];
@@ -78,11 +79,19 @@ function PatternList({
             <div className="pattern-image">
               {pattern.image_url ? (
                 <img
-                  src={getImageInfo(pattern).src}
+                  // Fix image URL by ensuring it has the correct base URL
+                  src={pattern.image_url.startsWith('http') 
+                    ? pattern.image_url 
+                    : `${API_BASE_URL}${pattern.image_url}`}
                   alt={`${pattern.brand} ${pattern.pattern_number}`}
                   className={
                     getImageInfo(pattern).downloaded ? "" : "not-downloaded"
                   }
+                  onError={(e) => {
+                    console.log("Image failed to load:", pattern.image_url);
+                    e.target.onerror = null;
+                    e.target.src = `${API_BASE_URL}/static/placeholder.png`;
+                  }}
                 />
               ) : (
                 <div className="no-image">No Image</div>
@@ -184,12 +193,18 @@ function PatternList({
                     {Array.isArray(pattern.pdf_files) && pattern.pdf_files.length > 0 ? (
                       <ul className="pdf-list">
                         {pattern.pdf_files.map((pdf) => (
-                          <li key={pdf.id}>
+                          <li key={pdf.id || `pdf-${Math.random()}`}>
                             <a
-                              href={pdf.url}
+                              // Fix PDF URL by ensuring it has the correct base URL
+                              href={pdf.url && pdf.url.startsWith('http') 
+                                ? pdf.url 
+                                : `${API_BASE_URL}${pdf.url || `/api/patterns/${pattern.id}/pdfs/${pdf.id}`}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log("Opening PDF:", pdf.url);
+                              }}
                             >
                               {pdf.category || "Document"} (
                               {pdf.filename || "PDF"})

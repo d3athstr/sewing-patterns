@@ -1,7 +1,7 @@
 import React from 'react';
 
-// PDFList component with robust array handling
-function PDFList() {
+// PDFList component with fixed URL handling
+function PDFList({ API_BASE_URL }) {
   const [pdfs, setPdfs] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -9,8 +9,8 @@ function PDFList() {
   React.useEffect(() => {
     console.log("PDFList component mounted, fetching PDFs");
     
-    // Fetch PDFs from the server
-    fetch('/pattern_pdfs')
+    // Fetch PDFs from the server with proper URL
+    fetch(`${API_BASE_URL}/pattern_pdfs`)
       .then(response => {
         console.log("PDF fetch response status:", response.status);
         if (!response.ok) {
@@ -38,7 +38,7 @@ function PDFList() {
         // Initialize as empty array on error
         setPdfs([]);
       });
-  }, []);
+  }, [API_BASE_URL]);
 
   // If loading, show loading message
   if (loading) {
@@ -66,9 +66,13 @@ function PDFList() {
         {safePdfs.map((pdf) => (
           <li key={pdf.id || `pdf-${Math.random()}`}>
             <a 
-              href={pdf.url} 
+              // Fix PDF URL by ensuring it has the correct base URL
+              href={pdf.url && pdf.url.startsWith('http') 
+                ? pdf.url 
+                : `${API_BASE_URL}${pdf.url || `/api/patterns/${pdf.pattern_id}/pdfs/${pdf.id}`}`}
               target="_blank" 
               rel="noopener noreferrer"
+              onClick={() => console.log("Opening PDF:", pdf.url)}
             >
               {pdf.pattern_brand} {pdf.pattern_number} - {pdf.category || "Document"}
             </a>
