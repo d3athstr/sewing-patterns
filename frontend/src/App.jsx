@@ -7,7 +7,7 @@ import AddPatternPanel from './components/AddPatternPanel.jsx';
 import ManualAddForm from './components/ManualAddForm.jsx';
 import PatternList from './components/PatternList.jsx';
 // Fix import path to use the correct PDFList component
-import PDFList from './components/PDFList.jsx';
+import PDFList from './PDFList.jsx';
 
 
 // Main App component wrapped with AuthProvider
