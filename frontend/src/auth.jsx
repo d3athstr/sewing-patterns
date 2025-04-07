@@ -31,7 +31,9 @@ export function AuthProvider({ children }) {
           const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
             headers: {
               'Authorization': `Bearer ${token}`
-            }
+            },
+            // Add cache control to prevent caching
+            cache: 'no-store'
           });
           
           console.log("Auth check response status:", response.status);
@@ -85,7 +87,9 @@ export function AuthProvider({ children }) {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
+        // Add cache control to prevent caching
+        cache: 'no-store'
       });
       
       console.log("Login response status:", response.status);
@@ -165,12 +169,22 @@ export function AuthProvider({ children }) {
     console.log("Request headers:", headers);
     
     try {
-      const response = await fetch(finalUrl, {
+      // Add cache control to all requests
+      const fetchOptions = {
         ...options,
-        headers
-      });
+        headers,
+        cache: 'no-store'
+      };
+      
+      const response = await fetch(finalUrl, fetchOptions);
       
       console.log(`Response status for ${normalizedUrl}:`, response.status);
+      
+      // Log response body for debugging
+      if (response.status !== 200) {
+        const responseText = await response.clone().text();
+        console.error(`Error response body: ${responseText}`);
+      }
       
       // If unauthorized, clear token and user
       if (response.status === 401) {

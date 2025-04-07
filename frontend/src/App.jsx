@@ -6,7 +6,8 @@ import FilterPanel from './components/FilterPanel.jsx';
 import AddPatternPanel from './components/AddPatternPanel.jsx';
 import ManualAddForm from './components/ManualAddForm.jsx';
 import PatternList from './components/PatternList.jsx';
-import PDFList from './PDFList.jsx';
+// Fix import path to use the correct PDFList component
+import PDFList from './components/PDFList.jsx';
 
 
 // Main App component wrapped with AuthProvider
@@ -140,7 +141,10 @@ function AppContent() {
         .then((res) => {
           console.log("Patterns API response status:", res.status);
           if (!res.ok) {
-            throw new Error(`HTTP error! Status: ${res.status}`);
+            return res.text().then(text => {
+              console.error("Error response body:", text);
+              throw new Error(`HTTP error! Status: ${res.status}, Body: ${text}`);
+            });
           }
           return res.json();
         })
