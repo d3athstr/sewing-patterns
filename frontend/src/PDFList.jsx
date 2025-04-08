@@ -1,82 +1,113 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from './auth.jsx';
 
-// PDFList component with fixed URL handling
 function PDFList({ API_BASE_URL }) {
-  const [pdfs, setPdfs] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const { authFetch } = useAuth();
+  const [pdfs, setPdfs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPdfs, setTotalPdfs] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     console.log("PDFList component mounted, fetching PDFs");
-    
-    // Fetch PDFs from the server with proper URL
-    fetch(`${API_BASE_URL}/pattern_pdfs`)
-      .then(response => {
-        console.log("PDF fetch response status:", response.status);
-        if (!response.ok) {
-          if (response.status === 404) {
-            console.log("No PDFs found (404 response)");
-            setPdfs([]);
-            setLoading(false);
-            return [];
-          }
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
+    fetchPDFPage(1);
+  }, []);
+
+  // Function to fetch a specific page of PDFs
+  const fetchPDFPage = (pageNum) => {
+    setLoading(true);
+    authFetch(`/api/pattern_pdfs?page=${pageNum}&per_page=20`)
+      .then(res => {
+        console.log("PDF API response status:", res.status);
+        return res.json();
       })
       .then(data => {
-        console.log("PDFs data received:", data);
-        // Ensure data is always treated as an array
-        const safeData = Array.isArray(data) ? data : [];
-        setPdfs(safeData);
+        console.log("PDFs fetched successfully:", data);
+        if (data.items && Array.isArray(data.items)) {
+          // Append new PDFs to existing ones if not page 1
+          if (pageNum === 1) {
+            setPdfs(data.items);
+          } else {
+            setPdfs(prev => [...prev, ...data.items]);
+          }
+          setTotalPdfs(data.total);
+          setHasMore(pageNum * data.per_page < data.total);
+          setPage(pageNum);
+        } else {
+          throw new Error("Invalid response format");
+        }
         setLoading(false);
       })
       .catch(err => {
-        console.error("Error fetching PDFs:", err);
-        setError(err.message);
+        console.error("Error loading PDFs:", err);
+        setError("Error loading PDFs: " + err.message);
         setLoading(false);
-        // Initialize as empty array on error
-        setPdfs([]);
       });
-  }, [API_BASE_URL]);
+  };
 
-  // If loading, show loading message
-  if (loading) {
-    return <div className="lcars-panel">Loading PDF list...</div>;
+  // Load more PDFs
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      fetchPDFPage(page + 1);
+    }
+  };
+
+  if (loading && pdfs.length === 0) {
+    return <div className="lcars-panel">Loading PDFs...</div>;
   }
 
-  // If error, show error message
   if (error) {
-    return <div className="lcars-panel error">Error loading PDFs: {error}</div>;
+    return <div className="lcars-panel error-panel">{error}</div>;
   }
 
-  // Ensure pdfs is always treated as an array
-  const safePdfs = Array.isArray(pdfs) ? pdfs : [];
-
-  // If no PDFs, show message
-  if (safePdfs.length === 0) {
-    return <div className="lcars-panel">No PDFs available</div>;
-  }
-
-  // Render PDF list
   return (
-    <div className="lcars-panel pdf-list-container">
-      <h2>All Pattern PDFs</h2>
-      <ul className="pdf-list">
-        {safePdfs.map((pdf) => (
-          <li key={pdf.id || `pdf-${Math.random()}`}>
-            <a 
-              // Fixed PDF URL construction - ensure we use the full URL with API_BASE_URL
-              href={`${API_BASE_URL}${pdf.pdf_url && pdf.pdf_url.startsWith('/') ? pdf.pdf_url : '/api/pdfs/' + pdf.id}`}
-              target="_blank" 
-              rel="noopener noreferrer"
-              onClick={() => console.log("Opening PDF:", pdf.pdf_url)}
-            >
-              {pdf.pattern_brand} {pdf.pattern_number} - {pdf.category || "Document"}
-            </a>
-          </li>
-        ))}
-      </ul>
+    <div className="lcars-panel pdf-list">
+      <h2>Pattern PDFs</h2>
+      {pdfs.length === 0 ? (
+        <p>No PDFs found.</p>
+      ) : (
+        <>
+          <p>Showing {pdfs.length} of {totalPdfs} PDFs</p>
+          <table className="lcars-table">
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Pattern #</th>
+                <th>Category</th>
+                <th>PDF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pdfs.map((pdf) => (
+                <tr key={pdf.id}>
+                  <td>{pdf.pattern_brand || 'Unknown'}</td>
+                  <td>{pdf.pattern_number || 'Unknown'}</td>
+                  <td>{pdf.category}</td>
+                  <td>
+                    <a
+                      href={`${API_BASE_URL}${pdf.pdf_url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View PDF
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {hasMore && (
+            <div className="load-more">
+              <button onClick={loadMore} disabled={loading}>
+                {loading ? "Loading..." : "Load More PDFs"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
