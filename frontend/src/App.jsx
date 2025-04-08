@@ -6,7 +6,7 @@ import FilterPanel from './components/FilterPanel.jsx';
 import AddPatternPanel from './components/AddPatternPanel.jsx';
 import ManualAddForm from './components/ManualAddForm.jsx';
 import PatternList from './components/PatternList.jsx';
-// Fix import path to use the correct PDFList component
+// Import PDFList from the correct location
 import PDFList from './PDFList.jsx';
 
 
@@ -140,16 +140,19 @@ function AppContent() {
       authFetch('/api/patterns')
         .then((res) => {
           console.log("Patterns API response status:", res.status);
-          if (!res.ok) {
-            return res.text().then(text => {
-              console.error("Error response body:", text);
-              throw new Error(`HTTP error! Status: ${res.status}, Body: ${text}`);
-            });
-          }
-          return res.json();
+          // Log the raw response for debugging
+          return res.text().then(text => {
+            console.log("Raw API response:", text.substring(0, 500) + "..."); // Log first 500 chars
+            try {
+              return JSON.parse(text); // Parse the text to JSON
+            } catch (e) {
+              console.error("JSON parse error:", e);
+              throw new Error(`Failed to parse JSON: ${e.message}`);
+            }
+          });
         })
         .then((data) => {
-          console.log("Patterns fetched successfully:", data);
+          console.log("Patterns parsed successfully, count:", Array.isArray(data) ? data.length : 0);
           // Ensure data is an array
           const patternsArray = Array.isArray(data) ? data : [];
           setPatterns(patternsArray);
