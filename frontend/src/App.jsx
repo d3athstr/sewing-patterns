@@ -47,6 +47,9 @@ function AppContent() {
   };
 
   const [patterns, setPatterns] = useState([]);
+  const [displayPatterns, setDisplayPatterns] = useState([]); // New state for displayed patterns
+  const [currentPage, setCurrentPage] = useState(1); // Track current page
+  const [totalPatterns, setTotalPatterns] = useState(0); // Track total pattern count
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [newPattern, setNewPattern] = useState({
@@ -111,9 +114,9 @@ function AppContent() {
   const [visibleCount, setVisibleCount] = useState(30);
   const loadMoreRef = useRef(null);
 
-  // Apply filters and sorting
-  const filteredPatterns = patterns && Array.isArray(patterns)
-    ? patterns
+  // Apply filters and sorting to the displayed patterns
+  const filteredPatterns = displayPatterns && Array.isArray(displayPatterns)
+    ? displayPatterns
         .filter((pattern) => {
           return Object.entries(filters).every(([key, value]) =>
             value ? String(pattern[key]).toLowerCase().includes(value.toLowerCase()) : true
@@ -127,6 +130,21 @@ function AppContent() {
           return extractNumber(a.pattern_number) - extractNumber(b.pattern_number);
         })
     : [];
+
+  // Load more patterns from the already fetched data
+  const loadMorePatterns = () => {
+    const nextPage = currentPage + 1;
+    const startIdx = (nextPage - 1) * 20;
+    const endIdx = startIdx + 20;
+    
+    // Only proceed if we have more patterns to load
+    if (startIdx < patterns.length) {
+      const nextPagePatterns = patterns.slice(startIdx, endIdx);
+      setDisplayPatterns(prev => [...prev, ...nextPagePatterns]);
+      setCurrentPage(nextPage);
+      console.log(`Loaded page ${nextPage}, patterns ${startIdx+1}-${Math.min(endIdx, patterns.length)} of ${patterns.length}`);
+    }
+  };
 
   // Fetch patterns when authenticated
   useEffect(() => {
@@ -142,7 +160,8 @@ function AppContent() {
           console.log("Patterns API response status:", res.status);
           // Log the raw response for debugging
           return res.text().then(text => {
-            console.log("Raw API response:", text.substring(0, 500) + "..."); // Log first 500 chars
+            console.log(`Raw API response size: ${text.length} bytes`);
+            console.log("Raw API response (first 500 chars):", text.substring(0, 500) + "...");
             try {
               return JSON.parse(text); // Parse the text to JSON
             } catch (e) {
@@ -153,9 +172,18 @@ function AppContent() {
         })
         .then((data) => {
           console.log("Patterns parsed successfully, count:", Array.isArray(data) ? data.length : 0);
-          // Ensure data is an array
-          const patternsArray = Array.isArray(data) ? data : [];
-          setPatterns(patternsArray);
+          
+          // Store all patterns but only display the first page
+          const allPatterns = Array.isArray(data) ? data : [];
+          setPatterns(allPatterns);
+          setTotalPatterns(allPatterns.length);
+          
+          // Only display the first 20 patterns initially to avoid performance issues
+          const firstPagePatterns = allPatterns.slice(0, 20);
+          setDisplayPatterns(firstPagePatterns);
+          setCurrentPage(1);
+          
+          console.log(`Displaying first 20 of ${allPatterns.length} patterns`);
           setLoading(false);
         })
         .catch((err) => {
@@ -164,6 +192,7 @@ function AppContent() {
           setLoading(false);
           // Initialize patterns as empty array on error
           setPatterns([]);
+          setDisplayPatterns([]);
         });
     }
   }, [isAuthenticated, authFetch]);
@@ -175,10 +204,10 @@ function AppContent() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // When the sentinel element is in view, increase the visible count
+        // When the sentinel element is in view, load more patterns
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setVisibleCount((prev) => prev + 30);
+            loadMorePatterns();
           }
         });
       },
@@ -189,7 +218,7 @@ function AppContent() {
     return () => {
       observer.disconnect();
     };
-  }, [filteredPatterns.length]);
+  }, [currentPage, patterns.length]);
 
   // Helper: returns image info from the backend
   const getImageInfo = (pattern) => {
@@ -225,11 +254,15 @@ function AppContent() {
       .then((res) => res.json())
       .then((data) => {
         alert("PDF uploaded successfully!");
-        setPatterns((prevPatterns) =>
-          prevPatterns.map((p) =>
-            p.id === patternId
-              ? { ...p, pdf_files: [...(p.pdf_files || []), data] }
-              : p
+        // Update both the full patterns array and the displayed patterns
+        setPatterns(prevPatterns => 
+          prevPatterns.map(p => 
+            p.id === patternId ? { ...p, pdf_files: [...(p.pdf_files || []), data] } : p
+          )
+        );
+        setDisplayPatterns(prevPatterns => 
+          prevPatterns.map(p => 
+            p.id === patternId ? { ...p, pdf_files: [...(p.pdf_files || []), data] } : p
           )
         );
         setPdfFile(null);
@@ -289,17 +322,31 @@ function AppContent() {
       })
       .then((addedOrUpdatedPattern) => {
         console.log("✅ Updated Pattern:", addedOrUpdatedPattern);
+        
+        // Update both the full patterns array and the displayed patterns
         setPatterns((prev) => {
-          // Ensure prev is an array
           const prevArray = Array.isArray(prev) ? prev : [];
-          
           const updated = prevArray.map((p) =>
             p.id === addedOrUpdatedPattern.id ? addedOrUpdatedPattern : p
           );
           return updated.some((p) => p.id === addedOrUpdatedPattern.id)
             ? updated
-            : [...updated, addedOrUpdatedPattern];
+            : [...prevArray, addedOrUpdatedPattern];
         });
+        
+        // If we're on the first page or the pattern should be on the current page, update displayed patterns
+        if (currentPage === 1 || displayPatterns.length < 20) {
+          setDisplayPatterns((prev) => {
+            const prevArray = Array.isArray(prev) ? prev : [];
+            const updated = prevArray.map((p) =>
+              p.id === addedOrUpdatedPattern.id ? addedOrUpdatedPattern : p
+            );
+            return updated.some((p) => p.id === addedOrUpdatedPattern.id)
+              ? updated
+              : [...prevArray, addedOrUpdatedPattern].slice(0, 20);
+          });
+        }
+        
         setNewPattern({ ...newPattern, pattern_number: "" });
       })
       .catch((err) => console.error(err));
@@ -333,11 +380,20 @@ function AppContent() {
         return res.json();
       })
       .then((addedPattern) => {
+        // Update both the full patterns array and the displayed patterns
         setPatterns((prev) => {
-          // Ensure prev is an array
           const prevArray = Array.isArray(prev) ? prev : [];
           return [...prevArray, addedPattern];
         });
+        
+        // If we're on the first page or have space, add to displayed patterns
+        if (currentPage === 1 || displayPatterns.length < 20) {
+          setDisplayPatterns((prev) => {
+            const prevArray = Array.isArray(prev) ? prev : [];
+            return [...prevArray, addedPattern].slice(0, 20);
+          });
+        }
+        
         setManualPattern({
           brand: "",
           pattern_number: "",
@@ -402,11 +458,17 @@ function AppContent() {
     })
       .then((res) => res.json())
       .then((updatedPattern) => {
+        // Update both the full patterns array and the displayed patterns
         setPatterns((prev) => {
-          // Ensure prev is an array
           const prevArray = Array.isArray(prev) ? prev : [];
           return prevArray.map((p) => (p.id === updatedPattern.id ? updatedPattern : p));
         });
+        
+        setDisplayPatterns((prev) => {
+          const prevArray = Array.isArray(prev) ? prev : [];
+          return prevArray.map((p) => (p.id === updatedPattern.id ? updatedPattern : p));
+        });
+        
         setEditingPatternId(null);
         setEditedPattern({});
       })
@@ -422,11 +484,17 @@ function AppContent() {
         method: "DELETE"
       })
         .then(() => {
+          // Update both the full patterns array and the displayed patterns
           setPatterns((prev) => {
-            // Ensure prev is an array
             const prevArray = Array.isArray(prev) ? prev : [];
             return prevArray.filter((p) => p.id !== patternId);
           });
+          
+          setDisplayPatterns((prev) => {
+            const prevArray = Array.isArray(prev) ? prev : [];
+            return prevArray.filter((p) => p.id !== patternId);
+          });
+          
           if (expandedPatternId === patternId) {
             setExpandedPatternId(null);
           }
@@ -489,6 +557,13 @@ function AppContent() {
         </div>
       )}
       
+      {/* Pattern Count Info */}
+      {!loading && !error && (
+        <div className="lcars-panel info-panel">
+          <p>Showing {displayPatterns.length} of {totalPatterns} patterns</p>
+        </div>
+      )}
+      
       {/* Add Pattern Panel */}
       <AddPatternPanel 
         BRANDS={BRANDS}
@@ -540,6 +615,15 @@ function AppContent() {
         formatLabel={formatLabel}
         API_BASE_URL={API_BASE_URL}
       />
+
+      {/* Load More Button */}
+      {!loading && displayPatterns.length < patterns.length && (
+        <div className="lcars-panel load-more-panel">
+          <button onClick={loadMorePatterns}>
+            Load More Patterns ({displayPatterns.length} of {patterns.length})
+          </button>
+        </div>
+      )}
 
       {/* PDF List */}
       <PDFList API_BASE_URL={API_BASE_URL} />
