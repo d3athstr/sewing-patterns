@@ -10,7 +10,6 @@ function PatternCard({ pattern, expandedPatternId, toggleExpand, getImageInfo, P
       onClick={() => toggleExpand(pattern.id)}
     >
       <img
-        className="pattern-card-large"
         src={getImageInfo(pattern).src}
         alt={`${pattern.brand} ${pattern.pattern_number}`}
       />
