@@ -134,7 +134,7 @@ def get_pattern(pattern_id):
         logger.error(f"Error fetching pattern {pattern_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/patterns/<int:pattern_id>/image', methods=['GET'])
+@app.route('/api/patterns/<int:pattern_id>/image_data', methods=['GET'])
 def get_pattern_image(pattern_id):
     """Get a pattern's image"""
     try:
