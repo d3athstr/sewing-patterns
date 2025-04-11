@@ -140,7 +140,7 @@ def get_pattern_image(pattern_id):
     try:
         pattern = Pattern.query.get(pattern_id)
         
-        if not pattern or not pattern.image:
+        if not pattern or not pattern.image_data:
             return jsonify({"error": "Image not found"}), 404
         
         return send_file(
