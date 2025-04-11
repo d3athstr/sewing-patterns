@@ -37,8 +37,8 @@ def login():
         if not user or not user.check_password(password):
             return jsonify({"error": "Invalid username or password"}), 401
         
-        access_token = create_access_token(identity=str(user.id))
-        refresh_token = create_refresh_token(identity=str(user.id))
+        access_token = create_access_token(identity=str(user.id))  # Convert user.id to string
+        refresh_token = create_refresh_token(identity=str(user.id))  # Convert user.id to string
         
         return jsonify({
             "message": "Login successful",
@@ -56,6 +56,10 @@ def check_auth():
     """Check if user is authenticated"""
     try:
         user_id = get_jwt_identity()
+        # Ensure user_id is treated as string or int as needed
+        if isinstance(user_id, str) and user_id.isdigit():
+            user_id = int(user_id)
+            
         user = User.query.get(user_id)
         
         if not user:
@@ -65,6 +69,27 @@ def check_auth():
     except Exception as e:
         logger.error(f"Auth check error: {str(e)}")
         return jsonify({"error": "Authentication check failed"}), 500
+
+# Add the missing /api/auth/me endpoint
+@app.route('/api/auth/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    """Get current authenticated user"""
+    try:
+        user_id = get_jwt_identity()
+        # Ensure user_id is treated as string or int as needed
+        if isinstance(user_id, str) and user_id.isdigit():
+            user_id = int(user_id)
+            
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        return jsonify(user.to_dict()), 200
+    except Exception as e:
+        logger.error(f"Get current user error: {str(e)}")
+        return jsonify({"error": "Failed to get current user"}), 500
 
 # Pattern routes with pagination
 @app.route('/api/patterns', methods=['GET'])
