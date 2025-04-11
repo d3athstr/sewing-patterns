@@ -43,6 +43,9 @@ function PatternList({
     );
   }
 
+  // Base64 encoded simple placeholder image (1x1 pixel transparent PNG)
+  const placeholderImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
   return (
     <div className="pattern-list">
       <h2>Patterns ({safePatterns.length})</h2>
@@ -90,7 +93,8 @@ function PatternList({
                   onError={(e) => {
                     console.log("Image failed to load:", pattern.image_url);
                     e.target.onerror = null;
-                    e.target.src = `${API_BASE_URL}/static/placeholder.png`;
+                    // Use inline base64 placeholder instead of external file
+                    e.target.src = placeholderImage;
                   }}
                 />
               ) : (
@@ -198,7 +202,7 @@ function PatternList({
                               // Fix PDF URL by ensuring it has the correct base URL
                               href={pdf.url && pdf.url.startsWith('http') 
                                 ? pdf.url 
-                                : `${API_BASE_URL}${pdf.url || `/api/patterns/${pattern.id}/pdfs/${pdf.id}`}`}
+                                : `${API_BASE_URL}${pdf.url || `/api/pdfs/${pdf.id}`}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => {
