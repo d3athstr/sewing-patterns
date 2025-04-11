@@ -87,7 +87,7 @@ function PatternList({
                     ? pattern.image_url 
                     : `${API_BASE_URL}${pattern.image_url}`}
                   alt={`${pattern.brand} ${pattern.pattern_number}`}
-                  width={"400"}
+
                   className={
                     getImageInfo(pattern).downloaded ? "" : "not-downloaded"
                   }
