@@ -87,6 +87,7 @@ function PatternList({
                     ? pattern.image_url 
                     : `${API_BASE_URL}${pattern.image_url}`}
                   alt={`${pattern.brand} ${pattern.pattern_number}`}
+                  width={"400"}
                   className={
                     getImageInfo(pattern).downloaded ? "" : "not-downloaded"
                   }
@@ -96,7 +97,7 @@ function PatternList({
                     // Use inline base64 placeholder instead of external file
                     e.target.src = placeholderImage;
                   }}
-                  width={100}
+                  
                 />
               ) : (
                 <div className="no-image">No Image</div>
