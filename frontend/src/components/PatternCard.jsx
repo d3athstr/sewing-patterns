@@ -4,7 +4,7 @@ function PatternCard({ pattern, expandedPatternId, toggleExpand, getImageInfo, P
   return (
     <div
       key={pattern.id}
-      className={`pattern-card-large ${
+      className={`pattern-card ${
         expandedPatternId === pattern.id ? "expanded" : ""
       }`}
       onClick={() => toggleExpand(pattern.id)}

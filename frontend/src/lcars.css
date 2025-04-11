@@ -33,24 +33,6 @@ body {
  }
 
  .pattern-card-large {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background-color: #1f1f2e;
-  border-left: 10px solid #29abe2;
-  border-radius: 0 24px 24px 0;
-  margin-bottom: 20px;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
-  transition: transform 0.2s ease-in-out;
-}
-
-.pattern-card-large:hover {
-  transform: scale(1.02);
-  background-color: #292943;
-}-large
-
- .pattern-card-large img {
   width: 400px;
   height: auto;
   border-radius: 6px;
