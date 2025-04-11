@@ -96,6 +96,7 @@ function PatternList({
                     // Use inline base64 placeholder instead of external file
                     e.target.src = placeholderImage;
                   }}
+                  width={100}
                 />
               ) : (
                 <div className="no-image">No Image</div>
