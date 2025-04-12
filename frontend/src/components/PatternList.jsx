@@ -1,4 +1,6 @@
+
 import React from 'react';
+import PatternDetails from './PatternDetails.jsx';
 
 // PatternList component with fixed image and PDF loading
 function PatternList({ 
@@ -24,16 +26,11 @@ function PatternList({
   setEditingPatternId,
   API_BASE_URL
 }) {
-  // Ensure filteredPatterns is always an array
   const safePatterns = Array.isArray(filteredPatterns) ? filteredPatterns : [];
-  
-  // Safely slice the visible patterns
   const visiblePatterns = safePatterns.slice(0, visibleCount);
-  
-  console.log("PatternList rendering with", safePatterns.length, "patterns");
-  console.log("Visible patterns:", visiblePatterns.length);
 
-  // Handle empty patterns array
+  const placeholderImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
   if (safePatterns.length === 0) {
     return (
       <div className="lcars-panel">
@@ -43,233 +40,95 @@ function PatternList({
     );
   }
 
-  // Base64 encoded simple placeholder image (1x1 pixel transparent PNG)
-  const placeholderImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
-
   return (
     <div className="pattern-list">
       <h2>Patterns ({safePatterns.length})</h2>
-      
-      {visiblePatterns.map((pattern) => (
-        <div
-          key={pattern.id || `temp-${pattern.pattern_number}`}
-          className={`lcars-panel pattern-card ${
-            expandedPatternId === pattern.id ? "expanded" : ""
-          }`}
-          onClick={() => toggleExpand(pattern.id)}
-        >
-          <div className="pattern-header">
-            <h3>
-              {pattern.brand} {pattern.pattern_number}
-            </h3>
-            <div className="pattern-actions">
-              <button
-                onClick={(e) => handleEdit(pattern, e)}
-                className="edit-btn"
-              >
-                Edit
-              </button>
-              <button
-                onClick={(e) => handleDelete(pattern.id, e)}
-                className="delete-btn"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-          
-          <div className="pattern-basic-info">
-            <div className="pattern-image">
-              {pattern.image_url ? (
-                <img
-                  // Fix image URL by ensuring it has the correct base URL
-                  src={pattern.image_url.startsWith('http') 
-                    ? pattern.image_url 
-                    : `${API_BASE_URL}${pattern.image_url}`}
-                  alt={`${pattern.brand} ${pattern.pattern_number}`}
 
-                  className={
-                    getImageInfo(pattern).downloaded ? "" : "not-downloaded"
-                  }
-                  onError={(e) => {
-                    console.log("Image failed to load:", pattern.image_url);
-                    e.target.onerror = null;
-                    // Use inline base64 placeholder instead of external file
-                    e.target.src = placeholderImage;
-                  }}
-                  
+      {visiblePatterns.map((pattern) => {
+        const isExpanded = expandedPatternId === pattern.id;
+        return (
+          <div
+            key={pattern.id || `temp-${pattern.pattern_number}`}
+            className={`lcars-panel pattern-card ${isExpanded ? "expanded" : ""}`}
+            onClick={() => toggleExpand(pattern.id)}
+          >
+            <div className="pattern-header">
+              <h3>
+                {pattern.brand} {pattern.pattern_number}
+              </h3>
+              <div className="pattern-actions">
+                <button
+                  onClick={(e) => handleEdit(pattern, e)}
+                  className="edit-btn"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={(e) => handleDelete(pattern.id, e)}
+                  className="delete-btn"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            <div className="pattern-basic-info">
+              <div className="pattern-image">
+                {pattern.image_url ? (
+                  <img
+                    src={pattern.image_url.startsWith('http') 
+                      ? pattern.image_url 
+                      : `${API_BASE_URL}${pattern.image_url}`}
+                    alt={`${pattern.brand} ${pattern.pattern_number}`}
+                    className={
+                      `${getImageInfo(pattern).downloaded ? "" : "not-downloaded"} ${
+                        isExpanded ? "pattern-card-large" : ""
+                      }`.trim()
+                    }
+                    onError={(e) => {
+                      console.log("Image failed to load:", pattern.image_url);
+                      e.target.onerror = null;
+                      e.target.src = placeholderImage;
+                    }}
+                  />
+                ) : (
+                  <div className="no-image">No Image</div>
+                )}
+              </div>
+              <div className="pattern-details">
+                <p><strong>Title:</strong> {pattern.title || "N/A"}</p>
+                <p><strong>Type:</strong> {pattern.item_type || "N/A"}</p>
+                <p><strong>Size:</strong> {pattern.size || "N/A"}</p>
+                <p><strong>Inventory:</strong> {pattern.inventory_qty ?? "N/A"}</p>
+              </div>
+            </div>
+
+            {isExpanded && (
+              <div className="pattern-expanded-info">
+                <PatternDetails
+                  key={pattern.id}
+                  pattern={pattern}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  pdfCategory={pdfCategory}
+                  setPdfCategory={setPdfCategory}
+                  pdfFile={pdfFile}
+                  setPdfFile={setPdfFile}
+                  uploadingPdf={uploadingPdf}
+                  handlePdfUpload={handlePdfUpload}
+                  formatLabel={formatLabel}
+                  editingPatternId={editingPatternId}
+                  editedPattern={editedPattern}
+                  handleEditChange={handleEditChange}
+                  handleEditSubmit={handleEditSubmit}
+                  setEditingPatternId={setEditingPatternId}
                 />
-              ) : (
-                <div className="no-image">No Image</div>
-              )}
-            </div>
-            <div className="pattern-details">
-              <p>
-                <strong>Title:</strong> {pattern.title || "N/A"}
-              </p>
-              <p>
-                <strong>Type:</strong> {pattern.item_type || "N/A"}
-              </p>
-              <p>
-                <strong>Size:</strong> {pattern.size || "N/A"}
-              </p>
-              <p>
-                <strong>Inventory:</strong>{" "}
-                {pattern.inventory_qty !== undefined
-                  ? pattern.inventory_qty
-                  : "N/A"}
-              </p>
-            </div>
+              </div>
+            )}
           </div>
-          
-          {expandedPatternId === pattern.id && (
-            <div className="pattern-expanded-info">
-              {editingPatternId === pattern.id ? (
-                <form onSubmit={handleEditSubmit}>
-                  <h4>Edit Pattern</h4>
-                  <div className="edit-form-grid">
-                    {Object.keys(editedPattern).map((key) => {
-                      // Skip id and other non-editable fields
-                      if (
-                        key === "id" ||
-                        key === "pdf_files" ||
-                        key === "downloaded" ||
-                        key === "image_url"
-                      ) {
-                        return null;
-                      }
-                      return (
-                        <div className="form-group" key={key}>
-                          <label htmlFor={key}>{formatLabel(key)}:</label>
-                          <input
-                            type="text"
-                            id={key}
-                            name={key}
-                            value={editedPattern[key] || ""}
-                            onChange={handleEditChange}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="form-actions">
-                    <button type="submit">Save</button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingPatternId(null);
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  <div className="expanded-details-grid">
-                    {Object.entries(pattern).map(([key, value]) => {
-                      // Skip certain fields
-                      if (
-                        key === "id" ||
-                        key === "pdf_files" ||
-                        key === "downloaded" ||
-                        key === "image_url" ||
-                        key === "brand" ||
-                        key === "pattern_number" ||
-                        key === "title" ||
-                        key === "item_type" ||
-                        key === "size" ||
-                        key === "inventory_qty"
-                      ) {
-                        return null;
-                      }
-                      return (
-                        <div className="detail-item" key={key}>
-                          <strong>{formatLabel(key)}:</strong>{" "}
-                          {value !== null && value !== "" ? value : "N/A"}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="pdf-section">
-                    <h4>PDF Files</h4>
-                    {Array.isArray(pattern.pdf_files) && pattern.pdf_files.length > 0 ? (
-                      <ul className="pdf-list">
-                        {pattern.pdf_files.map((pdf) => (
-                          <li key={pdf.id || `pdf-${Math.random()}`}>
-                            <a
-                              // Fix PDF URL by ensuring it has the correct base URL
-                              href={pdf.url && pdf.url.startsWith('http') 
-                                ? pdf.url 
-                                : `${API_BASE_URL}${pdf.url || `/api/pdfs/${pdf.id}`}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                console.log("Opening PDF:", pdf.url);
-                              }}
-                            >
-                              {pdf.category || "Document"} (
-                              {pdf.filename || "PDF"})
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>No PDF files available</p>
-                    )}
-                    
-                    <div className="pdf-upload">
-                      <h5>Upload PDF</h5>
-                      <div className="form-group">
-                        <label htmlFor={`pdf-category-${pattern.id}`}>
-                          Category:
-                        </label>
-                        <select
-                          id={`pdf-category-${pattern.id}`}
-                          value={pdfCategory}
-                          onChange={(e) => setPdfCategory(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <option value="Instructions">Instructions</option>
-                          <option value="Pattern">Pattern</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                      <div className="form-group">
-                        <label htmlFor={`pdf-file-${pattern.id}`}>
-                          PDF File:
-                        </label>
-                        <input
-                          type="file"
-                          id={`pdf-file-${pattern.id}`}
-                          accept=".pdf"
-                          onChange={(e) => setPdfFile(e.target.files[0])}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePdfUpload(pattern.id);
-                        }}
-                        disabled={!pdfFile || uploadingPdf}
-                      >
-                        {uploadingPdf ? "Uploading..." : "Upload PDF"}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
-      
-      {/* Load more sentinel */}
+        );
+      })}
+
       {safePatterns.length > visibleCount && (
         <div ref={loadMoreRef} className="load-more-sentinel">
           Loading more...
