@@ -86,7 +86,6 @@ function PatternDetails({ pattern, onEdit, onDelete, pdfCategory, setPdfCategory
             className="pattern-card-large"
             src={pattern.image_url.startsWith('http') ? pattern.image_url : `${process.env.REACT_APP_API_BASE_URL}${pattern.image_url}`}
             alt={`${pattern.brand} ${pattern.pattern_number}`}
-            style={{ width: '400px' }} // Add this line
           />
         </div>
       )}
@@ -191,3 +190,7 @@ function PatternDetails({ pattern, onEdit, onDelete, pdfCategory, setPdfCategory
 }
 
 export default PatternDetails;
+.pattern-card-large {
+  width: 400px; /* Set the width */
+  height: auto; /* Maintain aspect ratio */
+}
