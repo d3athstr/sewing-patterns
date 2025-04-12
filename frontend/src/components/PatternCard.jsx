@@ -1,12 +1,29 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-function PatternCard({ pattern, expandedPatternId, toggleExpand, getImageInfo, PatternDetails, handleEdit, handleDelete, pdfCategory, setPdfCategory, pdfFile, setPdfFile, uploadingPdf, handlePdfUpload, formatLabel, editingPatternId, editedPattern, handleEditChange, handleEditSubmit, setEditingPatternId }) {
+function PatternCard({
+  pattern,
+  expandedPatternId,
+  toggleExpand,
+  getImageInfo,
+  PatternDetails,
+  handleEdit,
+  handleDelete,
+  pdfCategory,
+  setPdfCategory,
+  pdfFile,
+  setPdfFile,
+  uploadingPdf,
+  handlePdfUpload,
+  formatLabel,
+  editingPatternId,
+  editedPattern,
+  handleEditChange,
+  handleEditSubmit,
+  setEditingPatternId,
+}) {
   return (
     <div
-      key={pattern.id}
-      className={`pattern-card ${
-        expandedPatternId === pattern.id ? "expanded" : ""
-      }`}
+      className={`pattern-card ${expandedPatternId === pattern.id ? "expanded" : ""}`}
       onClick={() => toggleExpand(pattern.id)}
     >
       <img
@@ -19,18 +36,15 @@ function PatternCard({ pattern, expandedPatternId, toggleExpand, getImageInfo, P
         </div>
         <div className="pattern-meta">
           {pattern.title && <div>{pattern.title}</div>}
-          {pattern.difficulty && (
-            <div>Difficulty: {pattern.difficulty}</div>
-          )}
+          {pattern.difficulty && <div>Difficulty: {pattern.difficulty}</div>}
           {pattern.size && <div>Size: {pattern.size}</div>}
-          {pattern.inventory_qty && (
-            <div>Quantity: {pattern.inventory_qty}</div>
-          )}
+          {pattern.inventory_qty && <div>Quantity: {pattern.inventory_qty}</div>}
         </div>
 
         {expandedPatternId === pattern.id && (
           <div className="pattern-details">
-            <PatternDetails 
+            <PatternDetails
+              key={pattern.id} {/* 🔧 forces re-render on pattern change */}
               pattern={pattern}
               onEdit={handleEdit}
               onDelete={handleDelete}
