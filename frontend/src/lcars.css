@@ -37,8 +37,13 @@ body {
   height: auto;
   border-radius: 6px;
   border: 2px solid #66ccff;
-}
- 
+ }
+
+ .pattern-expanded-image {
+  text-align: center;
+  margin-bottom: 1rem;
+ }
+
  .pattern-title {
    font-size: 1.2em;
    text-transform: uppercase;
