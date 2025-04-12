@@ -9,11 +9,11 @@ function PatternCard({ pattern }) {
   };
 
   return (
-    <div className="pattern-card-container" onClick={toggleExpand}>
+    <div className="pattern-card" onClick={toggleExpand}>
       <img
         src={`data:image/jpeg;base64,${pattern.image_data}`}
         alt={pattern.title}
-        className={`pattern-card ${isExpanded ? 'pattern-card-large' : ''}`}
+        className={isExpanded ? 'expanded' : ''}
       />
       <div className="pattern-details">
         <h3>{pattern.title}</h3>
