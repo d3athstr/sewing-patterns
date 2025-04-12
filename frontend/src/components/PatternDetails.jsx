@@ -80,6 +80,7 @@ function PatternDetails({ pattern, onEdit, onDelete, pdfCategory, setPdfCategory
 
   return (
     <>
+      <div key={pattern.id}>
       {pattern.image_url && (
         <div className="pattern-expanded-image">
           <img
@@ -185,12 +186,7 @@ function PatternDetails({ pattern, onEdit, onDelete, pdfCategory, setPdfCategory
           Delete
         </button>
       </div>
+      </div>
     </>
   );
-}
-
-export default PatternDetails;
-.pattern-card-large {
-  width: 400px; /* Set the width */
-  height: auto; /* Maintain aspect ratio */
 }
