@@ -80,16 +80,6 @@ function PatternDetails({ pattern, onEdit, onDelete, pdfCategory, setPdfCategory
 
   return (
     <>
-      <div key={pattern.id}>
-      {pattern.image_url && (
-        <div className="pattern-expanded-image">
-          <img
-            className="pattern-card-large"
-            src={pattern.image_url.startsWith('http') ? pattern.image_url : `${process.env.REACT_APP_API_BASE_URL}${pattern.image_url}`}
-            alt={`${pattern.brand} ${pattern.pattern_number}`}
-          />
-        </div>
-      )}
       {pattern.description && (
         <div>
           <strong>Description:</strong>{" "}
@@ -185,7 +175,6 @@ function PatternDetails({ pattern, onEdit, onDelete, pdfCategory, setPdfCategory
         <button onClick={(e) => onDelete(pattern.id, e)}>
           Delete
         </button>
-      </div>
       </div>
     </>
   );
