@@ -32,6 +32,10 @@ body {
    border: 2px solid #66ccff;
  }
 
+ .pattern-card img.expanded {
+  width: 400px;
+ }
+
  .pattern-card-large {
   width: 400px;
   height: auto;
