@@ -1,0 +1,6 @@
+# .htaccess for Sewing Patterns
+RewriteEngine On
+
+# Redirect any requests coming to the old IP address to garmentgallery.empire12.net
+RewriteCond %{HTTP_HOST} ^192\.168\.14\.45 [NC]
+RewriteRule ^(.*)$ http://garmentgallery.empire12.net/$1 [L,R=301]
