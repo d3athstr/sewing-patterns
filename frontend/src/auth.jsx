@@ -4,7 +4,7 @@ import { useState, useEffect, createContext, useContext } from 'react';
 const AuthContext = createContext(null);
 
 // Use direct port 5000 connection to backend API based on curl test results
-const API_BASE_URL = "http://garmentgallery.empire12.net:5000";
+const API_BASE_URL = "https://garmentgallery.empire12.net:5000";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
